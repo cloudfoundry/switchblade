@@ -34,7 +34,7 @@ func (sm *ServeMatcher) Match(actual interface{}) (success bool, err error) {
 		return false, fmt.Errorf("ServeMatcher expects a switchblade.Deployment, received %T", actual)
 	}
 
-	uri, err := url.Parse(deployment.URL)
+	uri, err := url.Parse(deployment.ExternalURL)
 	if err != nil {
 		return false, err
 	}

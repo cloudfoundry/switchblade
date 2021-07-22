@@ -13,6 +13,7 @@ func TestSwitchblade(t *testing.T) {
 
 	suite := spec.New("switchblade", spec.Report(report.Terminal{}), spec.Parallel())
 	suite("CloudFoundry", testCloudFoundry)
+	suite("Docker", testDocker)
 	suite("RandomName", testRandomName)
 	suite("Source", testSource)
 	suite.Run(t)

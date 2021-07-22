@@ -1,6 +1,7 @@
 package switchblade
 
 type Deployment struct {
-	Name string
-	URL  string
+	Name        string
+	ExternalURL string
+	InternalURL string
 }

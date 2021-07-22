@@ -53,7 +53,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 	context("Match", func() {
 		context("the http request succeeds and response equals expected", func() {
 			it("returns true", func() {
-				result, err := matcher.Match(switchblade.Deployment{URL: server.URL})
+				result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
 			})
@@ -65,7 +65,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("returns true", func() {
-				result, err := matcher.Match(switchblade.Deployment{URL: server.URL})
+				result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
 			})
@@ -77,7 +77,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("returns false", func() {
-				result, err := matcher.Match(switchblade.Deployment{URL: server.URL})
+				result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
 			})
@@ -89,7 +89,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("returns false", func() {
-				result, err := matcher.Match(switchblade.Deployment{URL: server.URL})
+				result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
 			})
@@ -101,7 +101,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 			})
 
 			it("returns false", func() {
-				result, err := matcher.Match(switchblade.Deployment{URL: server.URL})
+				result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeFalse())
 			})
@@ -118,7 +118,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the deployment URL cannot be parsed", func() {
 				it("returns an error", func() {
-					result, err := matcher.Match(switchblade.Deployment{URL: "%%%"})
+					result, err := matcher.Match(switchblade.Deployment{ExternalURL: "%%%"})
 					Expect(err).To(MatchError(ContainSubstring(`invalid URL escape "%%%"`)))
 					Expect(result).To(BeFalse())
 				})
@@ -126,7 +126,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the request URL is malformed", func() {
 				it("returns an error", func() {
-					result, err := matcher.Match(switchblade.Deployment{URL: "this url is garbage"})
+					result, err := matcher.Match(switchblade.Deployment{ExternalURL: "this url is garbage"})
 					Expect(err).To(MatchError(ContainSubstring("unsupported protocol scheme")))
 					Expect(result).To(BeFalse())
 				})
@@ -138,7 +138,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					result, err := matcher.Match(switchblade.Deployment{URL: server.URL})
+					result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
 					Expect(err).To(MatchError(ContainSubstring("error parsing regexp")))
 					Expect(result).To(BeFalse())
 				})
@@ -149,7 +149,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 	context("when the matcher fails", func() {
 		it.Before(func() {
 			matcher = matchers.Serve("no such content")
-			result, err := matcher.Match(switchblade.Deployment{URL: server.URL})
+			result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 		})
