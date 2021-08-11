@@ -3,9 +3,11 @@ package docker_test
 import (
 	"bytes"
 	gocontext "context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -173,6 +175,144 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 					"VCAP_SERVICES={}",
 					`VCAP_APPLICATION={"application_name":"some-app","name":"some-app","process_type":"web"}`,
 				}))
+			})
+		})
+
+		context("failure cases", func() {
+			context("when the container cannot be created", func() {
+				it.Before(func() {
+					client.ContainerCreateCall.Returns.Error = errors.New("could not create container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError("failed to create running container: could not create container"))
+				})
+			})
+
+			context("when the network cannot be connected", func() {
+				it.Before(func() {
+					networkManager.ConnectCall.Returns.Error = errors.New("could not connect network")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError("failed to connect container to network: could not connect network"))
+				})
+			})
+
+			context("when the lifecycle cannot be read", func() {
+				it.Before(func() {
+					Expect(os.Chmod(filepath.Join(workspace, "lifecycle", "lifecycle.tar.gz"), 0000)).To(Succeed())
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError(ContainSubstring("failed to open lifecycle:")))
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
+			})
+
+			context("when the lifecycle cannot be copied to the container", func() {
+				it.Before(func() {
+					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
+						b, err := io.ReadAll(content)
+						if err != nil {
+							return err
+						}
+
+						if strings.Contains(string(b), "lifecycle") {
+							return errors.New("could not copy lifecycle")
+						}
+
+						return nil
+					}
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError("failed to copy lifecycle into container: could not copy lifecycle"))
+				})
+			})
+
+			context("when the droplet cannot be read", func() {
+				it.Before(func() {
+					Expect(os.Chmod(filepath.Join(workspace, "droplets", "some-app.tar.gz"), 0000)).To(Succeed())
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError(ContainSubstring("failed to open droplet:")))
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
+			})
+
+			context("when the droplet cannot be copied to the container", func() {
+				it.Before(func() {
+					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
+						b, err := io.ReadAll(content)
+						if err != nil {
+							return err
+						}
+
+						if strings.Contains(string(b), "droplet") {
+							return errors.New("could not copy droplet")
+						}
+
+						return nil
+					}
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError("failed to copy droplet into container: could not copy droplet"))
+				})
+			})
+
+			context("when the container cannot be started", func() {
+				it.Before(func() {
+					client.ContainerStartCall.Returns.Error = errors.New("could not start container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError("failed to start container: could not start container"))
+				})
+			})
+
+			context("when the container cannot be inspected", func() {
+				it.Before(func() {
+					client.ContainerInspectCall.Returns.Error = errors.New("could not inspect container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError("failed to inspect container: could not inspect container"))
+				})
 			})
 		})
 	})

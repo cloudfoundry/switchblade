@@ -42,32 +42,32 @@ func NewTeardown(client TeardownClient, networks TeardownNetworkManager, workspa
 func (t Teardown) Run(ctx context.Context, name string) error {
 	err := t.client.ContainerRemove(ctx, name, types.ContainerRemoveOptions{Force: true})
 	if err != nil && !client.IsErrNotFound(err) {
-		panic(err)
+		return fmt.Errorf("failed to remove container: %w", err)
 	}
 
 	err = t.networks.Delete(ctx, InternalNetworkName)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to delete network: %w", err)
 	}
 
 	err = os.Remove(filepath.Join(t.workspace, "droplets", fmt.Sprintf("%s.tar.gz", name)))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		panic(err)
+		return fmt.Errorf("failed to delete droplet tarball: %w", err)
 	}
 
 	err = os.Remove(filepath.Join(t.workspace, "source", fmt.Sprintf("%s.tar.gz", name)))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		panic(err)
+		return fmt.Errorf("failed to delete source tarball: %w", err)
 	}
 
 	err = os.Remove(filepath.Join(t.workspace, "buildpacks", fmt.Sprintf("%s.tar.gz", name)))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		panic(err)
+		return fmt.Errorf("failed to delete buildpack tarball: %w", err)
 	}
 
 	err = os.RemoveAll(filepath.Join(t.workspace, "buildpacks", name))
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to delete buildpacks: %w", err)
 	}
 
 	return nil

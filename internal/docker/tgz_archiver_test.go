@@ -32,7 +32,7 @@ func testTGZArchiver(t *testing.T, context spec.G, it spec.S) {
 		err = os.MkdirAll(filepath.Join(input, "some-dir"), os.ModePerm)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = os.WriteFile(filepath.Join(input, "some-file"), []byte("some-content"), 0700)
+		err = os.WriteFile(filepath.Join(input, "some-file"), []byte("some-content"), 0400)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = os.WriteFile(filepath.Join(input, "some-dir", "other-file"), []byte("other-content"), 0600)
@@ -75,7 +75,7 @@ func testTGZArchiver(t *testing.T, context spec.G, it spec.S) {
 
 		info, err := os.Stat(filepath.Join(testOutput, "some-file"))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(info.Mode()).To(Equal(fs.FileMode(0700)))
+		Expect(info.Mode()).To(Equal(fs.FileMode(0400)))
 
 		content, err = os.ReadFile(filepath.Join(testOutput, "some-dir", "other-file"))
 		Expect(err).NotTo(HaveOccurred())
@@ -118,7 +118,7 @@ func testTGZArchiver(t *testing.T, context spec.G, it spec.S) {
 
 			info, err := os.Stat(filepath.Join(testOutput, "some", "path", "some-file"))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(info.Mode()).To(Equal(fs.FileMode(0700)))
+			Expect(info.Mode()).To(Equal(fs.FileMode(0400)))
 
 			content, err = os.ReadFile(filepath.Join(testOutput, "some", "path", "some-dir", "other-file"))
 			Expect(err).NotTo(HaveOccurred())
@@ -131,6 +131,20 @@ func testTGZArchiver(t *testing.T, context spec.G, it spec.S) {
 			link, err := os.Readlink(filepath.Join(testOutput, "some", "path", "some-dir", "some-link"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(link).To(Equal("other-file"))
+		})
+	})
+
+	context("failure cases", func() {
+		context("when a file in the input cannot be opened", func() {
+			it.Before(func() {
+				Expect(os.Chmod(filepath.Join(input, "some-file"), 0000)).To(Succeed())
+			})
+
+			it("returns an error", func() {
+				err := archiver.Compress(input, output)
+				Expect(err).To(MatchError(ContainSubstring("failed to open file:")))
+				Expect(err).To(MatchError(ContainSubstring("permission denied")))
+			})
 		})
 	})
 }

@@ -61,59 +61,58 @@ type SetupNetworkManager interface {
 }
 
 type Setup struct {
-	client         SetupClient
-	lifecycle      LifecycleBuilder
-	archiver       Archiver
-	buildpacks     BuildpacksBuilder
-	networks       SetupNetworkManager
-	workspace      string
-	env            map[string]string
-	internetAccess bool
+	client             SetupClient
+	lifecycle          LifecycleBuilder
+	archiver           Archiver
+	buildpacks         BuildpacksBuilder
+	networks           SetupNetworkManager
+	workspace          string
+	env                map[string]string
+	disconnectInternet bool
 }
 
 func NewSetup(client SetupClient, lifecycle LifecycleBuilder, buildpacks BuildpacksBuilder, archiver Archiver, networks SetupNetworkManager, workspace string) Setup {
 	return Setup{
-		client:         client,
-		lifecycle:      lifecycle,
-		buildpacks:     buildpacks,
-		archiver:       archiver,
-		networks:       networks,
-		workspace:      workspace,
-		internetAccess: true,
+		client:     client,
+		lifecycle:  lifecycle,
+		buildpacks: buildpacks,
+		archiver:   archiver,
+		networks:   networks,
+		workspace:  workspace,
 	}
 }
 
 func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (string, error) {
 	lifecycle, err := s.lifecycle.Build(BuildpackAppLifecycleRepoURL, filepath.Join(s.workspace, "lifecycle"))
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to build lifecycle: %w", err)
 	}
 
 	buildpacks, err := s.buildpacks.Build(filepath.Join(s.workspace, "buildpacks"), name)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to build buildpacks: %w", err)
 	}
 
 	source := filepath.Join(s.workspace, "source", fmt.Sprintf("%s.tar.gz", name))
 	err = s.archiver.WithPrefix("/tmp/app").Compress(path, source)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to archive source code: %w", err)
 	}
 
 	pullLogs, err := s.client.ImagePull(ctx, CFLinuxFS3DockerImage, types.ImagePullOptions{})
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to pull base image: %w", err)
 	}
 	defer pullLogs.Close()
 
 	_, err = io.Copy(logs, pullLogs)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to copy image pull logs: %w", err)
 	}
 
 	err = s.networks.Create(ctx, InternalNetworkName, "bridge", true)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to create network: %w", err)
 	}
 
 	env := []string{"CF_STACK=cflinuxfs3"}
@@ -123,7 +122,7 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 
 	order, skipDetect, err := s.buildpacks.Order()
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to determine buildpack ordering: %w", err)
 	}
 
 	containerConfig := container.Config{
@@ -148,30 +147,30 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 
 	resp, err := s.client.ContainerCreate(ctx, &containerConfig, &hostConfig, nil, nil, name)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to create staging container: %w", err)
 	}
 
-	if s.internetAccess {
+	if !s.disconnectInternet {
 		err = s.networks.Connect(ctx, resp.ID, BridgeNetworkName)
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to connect container to network: %w", err)
 		}
 	}
 
 	for _, tarballPath := range []string{lifecycle, buildpacks, source} {
 		tarball, err := os.Open(tarballPath)
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to open tarball: %w", err)
 		}
 
 		err = s.client.CopyToContainer(ctx, resp.ID, "/", tarball, types.CopyToContainerOptions{})
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to copy tarball to container: %w", err)
 		}
 
 		err = tarball.Close()
 		if err != nil && !errors.Is(err, os.ErrClosed) {
-			panic(err)
+			return "", fmt.Errorf("failed to close tarball: %w", err)
 		}
 	}
 
@@ -189,6 +188,6 @@ func (s Setup) WithEnv(env map[string]string) SetupPhase {
 }
 
 func (s Setup) WithoutInternetAccess() SetupPhase {
-	s.internetAccess = false
+	s.disconnectInternet = true
 	return s
 }

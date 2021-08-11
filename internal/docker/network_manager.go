@@ -36,7 +36,7 @@ func (m NetworkManager) Create(ctx context.Context, name, driver string, interna
 
 	networks, err := m.client.NetworkList(ctx, types.NetworkListOptions{})
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to list networks: %w", err)
 	}
 
 	for _, network := range networks {
@@ -50,7 +50,7 @@ func (m NetworkManager) Create(ctx context.Context, name, driver string, interna
 		Internal: internal,
 	})
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to create network: %w", err)
 	}
 
 	return nil
@@ -62,14 +62,14 @@ func (m NetworkManager) Connect(ctx context.Context, containerID, name string) e
 
 	networks, err := m.client.NetworkList(ctx, types.NetworkListOptions{})
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to list networks: %w", err)
 	}
 
 	for _, network := range networks {
 		if network.Name == name {
 			err = m.client.NetworkConnect(ctx, network.ID, containerID, nil)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("failed to connect container to network: %w", err)
 			}
 
 			return nil
@@ -85,14 +85,14 @@ func (m NetworkManager) Delete(ctx context.Context, name string) error {
 
 	networks, err := m.client.NetworkList(ctx, types.NetworkListOptions{})
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to list networks: %w", err)
 	}
 
 	for _, network := range networks {
 		if network.Name == name {
 			err = m.client.NetworkRemove(ctx, network.ID)
 			if err != nil && !errdefs.IsForbidden(err) {
-				panic(err)
+				return fmt.Errorf("failed to delete network: %w", err)
 			}
 
 			return nil

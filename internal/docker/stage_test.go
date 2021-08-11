@@ -4,10 +4,12 @@ import (
 	"archive/tar"
 	"bytes"
 	gocontext "context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/iotest"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -184,6 +186,323 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 				Expect(logs).To(ContainLines("Fetching container logs..."))
 
 				Expect(filepath.Join(workspace, "droplets", "some-app.tar.gz")).NotTo(BeAnExistingFile())
+			})
+
+			context("failure cases", func() {
+				context("when the container cannot be removed", func() {
+					it.Before(func() {
+						client.ContainerRemoveCall.Returns.Error = errors.New("could not remove container")
+					})
+
+					it("returns an error", func() {
+						ctx := gocontext.Background()
+						logs := bytes.NewBuffer(nil)
+
+						_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+						Expect(err).To(MatchError("failed to remove container: could not remove container"))
+					})
+				})
+			})
+		})
+
+		context("failure cases", func() {
+			context("when the container cannot be started", func() {
+				it.Before(func() {
+					client.ContainerStartCall.Returns.Error = errors.New("could not start container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to start container: could not start container"))
+				})
+			})
+
+			context("when the container cannot be waited on", func() {
+				it.Before(func() {
+					errChan := make(chan error)
+					waitChan := make(chan container.ContainerWaitOKBody)
+					go func() {
+						errChan <- errors.New("could not wait on container")
+						close(errChan)
+						close(waitChan)
+					}()
+
+					client.ContainerWaitCall.Returns.ErrorChannel = errChan
+					client.ContainerWaitCall.Returns.ContainerWaitOKBodyChannel = waitChan
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to wait on container: could not wait on container"))
+				})
+			})
+
+			context("when the container logs cannot be fetched", func() {
+				it.Before(func() {
+					client.ContainerLogsCall.Returns.Error = errors.New("could not fetch container logs")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to fetch container logs: could not fetch container logs"))
+				})
+			})
+
+			context("when the container logs cannot be copied", func() {
+				it.Before(func() {
+					client.ContainerLogsCall.Returns.ReadCloser = io.NopCloser(iotest.ErrReader(errors.New("could not read logs")))
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to copy container logs: could not read logs"))
+				})
+			})
+
+			context("when the droplet cannot be copied from the container", func() {
+				it.Before(func() {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+						switch srcPath {
+						case "/tmp/droplet":
+							return nil, types.ContainerPathStat{}, errors.New("could not copy droplet")
+
+						case "/tmp/result.json":
+							buffer := bytes.NewBuffer(nil)
+							result := []byte(`{ "processes": [ { "type": "web", "command": "some-command" }, { "type": "worker", "command": "other-command" } ] }`)
+
+							tw := tar.NewWriter(buffer)
+							defer tw.Close()
+							err := tw.WriteHeader(&tar.Header{Name: "result.json", Mode: 0600, Size: int64(len(result))})
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							_, err = tw.Write(result)
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						}
+
+						return nil, types.ContainerPathStat{}, nil
+					}
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to copy droplet from container: could not copy droplet"))
+				})
+			})
+
+			context("when the droplets directory cannot be created", func() {
+				it.Before(func() {
+					Expect(os.Chmod(workspace, 0000)).To(Succeed())
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError(ContainSubstring("failed to create droplets directory:")))
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
+			})
+
+			context("when the droplet tarball is malformed", func() {
+				it.Before(func() {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+						switch srcPath {
+						case "/tmp/droplet":
+							return io.NopCloser(iotest.ErrReader(errors.New("could not read tarball"))), types.ContainerPathStat{}, nil
+
+						case "/tmp/result.json":
+							buffer := bytes.NewBuffer(nil)
+							result := []byte(`{ "processes": [ { "type": "web", "command": "some-command" }, { "type": "worker", "command": "other-command" } ] }`)
+
+							tw := tar.NewWriter(buffer)
+							defer tw.Close()
+							err := tw.WriteHeader(&tar.Header{Name: "result.json", Mode: 0600, Size: int64(len(result))})
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							_, err = tw.Write(result)
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						}
+
+						return nil, types.ContainerPathStat{}, nil
+					}
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to retrieve droplet from tarball: could not read tarball"))
+				})
+			})
+
+			context("when the result cannot be copied from the container", func() {
+				it.Before(func() {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+						switch srcPath {
+						case "/tmp/droplet":
+							buffer := bytes.NewBuffer(nil)
+							tw := tar.NewWriter(buffer)
+							defer tw.Close()
+							err := tw.WriteHeader(&tar.Header{Name: "droplet", Mode: 0600, Size: 21})
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							_, err = tw.Write([]byte("some-droplet-contents"))
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+
+						case "/tmp/result.json":
+							return nil, types.ContainerPathStat{}, errors.New("could not copy result.json")
+						}
+
+						return nil, types.ContainerPathStat{}, nil
+					}
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to copy result.json from container: could not copy result.json"))
+				})
+			})
+
+			context("when the result tarball is malformed", func() {
+				it.Before(func() {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+						switch srcPath {
+						case "/tmp/droplet":
+							buffer := bytes.NewBuffer(nil)
+							tw := tar.NewWriter(buffer)
+							defer tw.Close()
+							err := tw.WriteHeader(&tar.Header{Name: "droplet", Mode: 0600, Size: 21})
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							_, err = tw.Write([]byte("some-droplet-contents"))
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+
+						case "/tmp/result.json":
+							return io.NopCloser(iotest.ErrReader(errors.New("could not read tarball"))), types.ContainerPathStat{}, nil
+						}
+
+						return nil, types.ContainerPathStat{}, nil
+					}
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to retrieve result.json from tarball: could not read tarball"))
+				})
+			})
+
+			context("when the result json is malformed", func() {
+				it.Before(func() {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+						switch srcPath {
+						case "/tmp/droplet":
+							buffer := bytes.NewBuffer(nil)
+							tw := tar.NewWriter(buffer)
+							defer tw.Close()
+							err := tw.WriteHeader(&tar.Header{Name: "droplet", Mode: 0600, Size: 21})
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							_, err = tw.Write([]byte("some-droplet-contents"))
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+
+						case "/tmp/result.json":
+							buffer := bytes.NewBuffer(nil)
+							result := []byte("%%%")
+
+							tw := tar.NewWriter(buffer)
+							defer tw.Close()
+							err := tw.WriteHeader(&tar.Header{Name: "result.json", Mode: 0600, Size: int64(len(result))})
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							_, err = tw.Write(result)
+							if err != nil {
+								return nil, types.ContainerPathStat{}, err
+							}
+
+							return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						}
+
+						return nil, types.ContainerPathStat{}, nil
+					}
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError(ContainSubstring("failed to parse result.json:")))
+					Expect(err).To(MatchError(ContainSubstring("invalid character '%'")))
+				})
+			})
+
+			context("when the container cannot be removed", func() {
+				it.Before(func() {
+					client.ContainerRemoveCall.Returns.Error = errors.New("could not remove container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError("failed to remove container: could not remove container"))
+				})
 			})
 		})
 	})

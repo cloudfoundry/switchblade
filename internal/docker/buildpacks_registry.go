@@ -45,28 +45,23 @@ func (r BuildpacksRegistry) List() ([]Buildpack, error) {
 
 		value, ok := r.index.Load(buildpack.Name)
 		if ok {
-			uri, ok := value.(string)
-			if !ok {
-				panic("something bad happened")
-			}
-
-			buildpack.URI = uri
+			buildpack.URI = value.(string)
 		} else {
 			req, err := http.NewRequest("GET", fmt.Sprintf("%s/repos/cloudfoundry/%s/releases/latest", r.api, name), nil)
 			if err != nil {
-				panic(err)
+				return nil, fmt.Errorf("failed to create request: %w", err)
 			}
 
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", r.token))
 
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
-				panic(err)
+				return nil, fmt.Errorf("failed to complete request: %w", err)
 			}
 
 			if resp.StatusCode != http.StatusOK {
 				dump, _ := httputil.DumpResponse(resp, true)
-				panic(string(dump))
+				return nil, fmt.Errorf("received unexpected response status: %s", dump)
 			}
 
 			var release struct {
@@ -77,7 +72,7 @@ func (r BuildpacksRegistry) List() ([]Buildpack, error) {
 			}
 			err = json.NewDecoder(resp.Body).Decode(&release)
 			if err != nil {
-				panic(err)
+				return nil, fmt.Errorf("failed to parse response json: %w", err)
 			}
 
 			for _, asset := range release.Assets {
@@ -94,25 +89,16 @@ func (r BuildpacksRegistry) List() ([]Buildpack, error) {
 	}
 
 	r.index.Range(func(key, value interface{}) bool {
-		name, ok := key.(string)
-		if !ok {
-			panic("something bad happened")
-		}
-
+		name := key.(string)
 		for _, buildpack := range DefaultBuildpacks {
 			if name == strings.ReplaceAll(fmt.Sprintf("%s-buildpack", buildpack), "-", "_") {
 				return true
 			}
 		}
 
-		uri, ok := value.(string)
-		if !ok {
-			panic("something bad happened")
-		}
-
 		list = append(list, Buildpack{
 			Name: name,
-			URI:  uri,
+			URI:  value.(string),
 		})
 
 		return true

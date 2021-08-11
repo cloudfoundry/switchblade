@@ -62,6 +62,10 @@ func testBuildpacksRegistry(t *testing.T, context spec.G, it spec.S) {
 		registry = docker.NewBuildpacksRegistry(server.URL, "some-token")
 	})
 
+	it.After(func() {
+		server.Close()
+	})
+
 	context("List", func() {
 		it("manages the canonical list of buildpacks", func() {
 			list, err := registry.List()
@@ -112,6 +116,65 @@ func testBuildpacksRegistry(t *testing.T, context spec.G, it spec.S) {
 					URI:  "some-binary-uri",
 				},
 			}))
+		})
+
+		context("failure cases", func() {
+			context("when the api is malformed", func() {
+				it.Before(func() {
+					registry = docker.NewBuildpacksRegistry("%%%", "some-token")
+				})
+
+				it("returns an error", func() {
+					_, err := registry.List()
+					Expect(err).To(MatchError(ContainSubstring("failed to create request:")))
+					Expect(err).To(MatchError(ContainSubstring("invalid URL escape")))
+				})
+			})
+
+			context("when the request fails", func() {
+				it.Before(func() {
+					registry = docker.NewBuildpacksRegistry("http://localhost:0", "some-token")
+				})
+
+				it("returns an error", func() {
+					_, err := registry.List()
+					Expect(err).To(MatchError(ContainSubstring("failed to complete request:")))
+					Expect(err).To(MatchError(ContainSubstring("can't assign requested address")))
+				})
+			})
+
+			context("whent the response status is not 200 OK", func() {
+				it.Before(func() {
+					server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+						w.WriteHeader(http.StatusInternalServerError)
+						fmt.Fprintf(w, "server encountered an error")
+					}))
+
+					registry = docker.NewBuildpacksRegistry(server.URL, "some-token")
+				})
+
+				it("returns an error", func() {
+					_, err := registry.List()
+					Expect(err).To(MatchError(ContainSubstring("received unexpected response status:")))
+					Expect(err).To(MatchError(ContainSubstring("server encountered an error")))
+				})
+			})
+
+			context("when the response json is malformed", func() {
+				it.Before(func() {
+					server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+						fmt.Fprint(w, "%%%")
+					}))
+
+					registry = docker.NewBuildpacksRegistry(server.URL, "some-token")
+				})
+
+				it("returns an error", func() {
+					_, err := registry.List()
+					Expect(err).To(MatchError(ContainSubstring("failed to parse response json:")))
+					Expect(err).To(MatchError(ContainSubstring("invalid character '%'")))
+				})
+			})
 		})
 	})
 

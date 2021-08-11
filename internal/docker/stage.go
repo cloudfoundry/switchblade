@@ -43,7 +43,7 @@ func NewStage(client StageClient, workspace string) Stage {
 func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string) (string, error) {
 	err := s.client.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to start container: %w", err)
 	}
 
 	var status container.ContainerWaitOKBody
@@ -51,7 +51,7 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 	select {
 	case err := <-onErr:
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to wait on container: %w", err)
 		}
 	case status = <-onExit:
 	}
@@ -61,19 +61,19 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 		ShowStderr: true,
 	})
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to fetch container logs: %w", err)
 	}
 	defer containerLogs.Close()
 
 	_, err = stdcopy.StdCopy(logs, logs, containerLogs)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to copy container logs: %w", err)
 	}
 
 	if status.StatusCode != 0 {
 		err = s.client.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to remove container: %w", err)
 		}
 
 		return "", fmt.Errorf("App staging failed: container exited with non-zero status code (%d)", status.StatusCode)
@@ -81,18 +81,18 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 
 	droplet, _, err := s.client.CopyFromContainer(ctx, containerID, "/tmp/droplet")
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to copy droplet from container: %w", err)
 	}
 	defer droplet.Close()
 
 	err = os.MkdirAll(filepath.Join(s.workspace, "droplets"), os.ModePerm)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to create droplets directory: %w", err)
 	}
 
 	dropletFile, err := os.Create(filepath.Join(s.workspace, "droplets", fmt.Sprintf("%s.tar.gz", name)))
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to create droplet tarball: %w", err)
 	}
 	defer dropletFile.Close()
 
@@ -103,20 +103,20 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 			break
 		}
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to retrieve droplet from tarball: %w", err)
 		}
 
 		if hdr.Name == "droplet" {
 			_, err = io.Copy(dropletFile, tr)
 			if err != nil {
-				panic(err)
+				return "", fmt.Errorf("failed to copy droplet from tarball: %w", err)
 			}
 		}
 	}
 
 	result, _, err := s.client.CopyFromContainer(ctx, containerID, "/tmp/result.json")
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to copy result.json from container: %w", err)
 	}
 	defer result.Close()
 
@@ -129,13 +129,13 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 			break
 		}
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to retrieve result.json from tarball: %w", err)
 		}
 
 		if hdr.Name == "result.json" {
 			_, err = io.Copy(buffer, tr)
 			if err != nil {
-				panic(err)
+				return "", fmt.Errorf("failed to copy result.json from tarball: %w", err)
 			}
 		}
 	}
@@ -148,7 +148,7 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 	}
 	err = json.NewDecoder(buffer).Decode(&resultContent)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to parse result.json: %w", err)
 	}
 
 	var command string
@@ -160,7 +160,7 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 
 	err = s.client.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to remove container: %w", err)
 	}
 
 	return command, nil

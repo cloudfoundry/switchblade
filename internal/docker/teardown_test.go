@@ -146,5 +146,33 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
+
+		context("failure cases", func() {
+			context("when the container cannot be removed", func() {
+				it.Before(func() {
+					client.ContainerRemoveCall.Returns.Error = errors.New("could not remove container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+
+					err := teardown.Run(ctx, "some-app")
+					Expect(err).To(MatchError("failed to remove container: could not remove container"))
+				})
+			})
+
+			context("when the network cannot be delete", func() {
+				it.Before(func() {
+					networkManager.DeleteCall.Returns.Error = errors.New("could not delete network")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+
+					err := teardown.Run(ctx, "some-app")
+					Expect(err).To(MatchError("failed to delete network: could not delete network"))
+				})
+			})
+		})
 	})
 }

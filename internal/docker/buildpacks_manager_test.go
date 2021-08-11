@@ -3,6 +3,7 @@ package docker_test
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -146,6 +147,56 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 				Expect(string(content)).To(Equal("some-nodejs-content"))
 			})
 		})
+
+		context("failure cases", func() {
+			context("when the registry cannot list the buildpacks", func() {
+				it.Before(func() {
+					registry.ListCall.Returns.Error = errors.New("could not list buildpacks")
+				})
+
+				it("returns an error", func() {
+					_, err := manager.Build(workspace, "some-app")
+					Expect(err).To(MatchError("failed to list buildpacks: could not list buildpacks"))
+				})
+			})
+
+			context("when the cache cannot fetch the buildpack", func() {
+				it.Before(func() {
+					cache.FetchCall.Stub = nil
+					cache.FetchCall.Returns.Error = errors.New("could not fetch buildpack")
+				})
+
+				it("returns an error", func() {
+					_, err := manager.Build(workspace, "some-app")
+					Expect(err).To(MatchError("failed to fetch buildpack: could not fetch buildpack"))
+				})
+			})
+
+			context("when the buildpack cannot be decompressed", func() {
+				it.Before(func() {
+					cache.FetchCall.Stub = func(url string) (io.ReadCloser, error) {
+						return io.NopCloser(bytes.NewBuffer([]byte("this is not a zip file"))), nil
+					}
+				})
+
+				it("returns an error", func() {
+					_, err := manager.Build(workspace, "some-app")
+					Expect(err).To(MatchError(ContainSubstring("failed to decompress buildpack:")))
+					Expect(err).To(MatchError(ContainSubstring("not a valid zip file")))
+				})
+			})
+
+			context("when the archiver fails to compress the buildpacks", func() {
+				it.Before(func() {
+					archiver.CompressCall.Returns.Error = errors.New("could not compress buildpacks")
+				})
+
+				it("returns an error", func() {
+					_, err := manager.Build(workspace, "some-app")
+					Expect(err).To(MatchError("failed to archive buildpacks: could not compress buildpacks"))
+				})
+			})
+		})
 	})
 
 	context("Order", func() {
@@ -162,6 +213,19 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(order).To(Equal("nodejs-buildpack,go-buildpack"))
 				Expect(skipDetect).To(BeTrue())
+			})
+		})
+
+		context("failure cases", func() {
+			context("when the registry cannot list the buildpacks", func() {
+				it.Before(func() {
+					registry.ListCall.Returns.Error = errors.New("could not list buildpacks")
+				})
+
+				it("returns an error", func() {
+					_, _, err := manager.Order()
+					Expect(err).To(MatchError("failed to list buildpacks: could not list buildpacks"))
+				})
 			})
 		})
 	})

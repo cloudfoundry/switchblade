@@ -71,6 +71,34 @@ func testNetworkManager(t *testing.T, context spec.G, it spec.S) {
 				Expect(client.NetworkCreateCall.CallCount).To(Equal(0))
 			})
 		})
+
+		context("failure cases", func() {
+			context("when the client fails to list networks", func() {
+				it.Before(func() {
+					client.NetworkListCall.Returns.Error = errors.New("networks could not be listed")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+
+					err := manager.Create(ctx, "some-network", "some-driver", true)
+					Expect(err).To(MatchError("failed to list networks: networks could not be listed"))
+				})
+			})
+
+			context("when the client fails to create a network", func() {
+				it.Before(func() {
+					client.NetworkCreateCall.Returns.Error = errors.New("network could not be created")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+
+					err := manager.Create(ctx, "some-network", "some-driver", true)
+					Expect(err).To(MatchError("failed to create network: network could not be created"))
+				})
+			})
+		})
 	})
 
 	context("Connect", func() {
@@ -111,6 +139,34 @@ func testNetworkManager(t *testing.T, context spec.G, it spec.S) {
 
 				Expect(client.NetworkListCall.CallCount).To(Equal(1))
 				Expect(client.NetworkConnectCall.CallCount).To(Equal(0))
+			})
+		})
+
+		context("failure cases", func() {
+			context("when the client fails to list networks", func() {
+				it.Before(func() {
+					client.NetworkListCall.Returns.Error = errors.New("networks could not be listed")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+
+					err := manager.Connect(ctx, "some-container-id", "some-network")
+					Expect(err).To(MatchError("failed to list networks: networks could not be listed"))
+				})
+			})
+
+			context("when the client fails to connect the network", func() {
+				it.Before(func() {
+					client.NetworkConnectCall.Returns.Error = errors.New("network could not be connected")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+
+					err := manager.Connect(ctx, "some-container-id", "some-network")
+					Expect(err).To(MatchError("failed to connect container to network: network could not be connected"))
+				})
 			})
 		})
 	})
@@ -165,6 +221,34 @@ func testNetworkManager(t *testing.T, context spec.G, it spec.S) {
 
 				err := manager.Delete(ctx, "some-network")
 				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		context("failure cases", func() {
+			context("when the client fails to list networks", func() {
+				it.Before(func() {
+					client.NetworkListCall.Returns.Error = errors.New("networks could not be listed")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+
+					err := manager.Delete(ctx, "some-network")
+					Expect(err).To(MatchError("failed to list networks: networks could not be listed"))
+				})
+			})
+
+			context("when the network cannot be removed", func() {
+				it.Before(func() {
+					client.NetworkRemoveCall.Returns.Error = errors.New("network could not be removed")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+
+					err := manager.Delete(ctx, "some-network")
+					Expect(err).To(MatchError("failed to delete network: network could not be removed"))
+				})
 			})
 		})
 	})

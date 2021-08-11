@@ -3,10 +3,13 @@ package docker_test
 import (
 	"bytes"
 	gocontext "context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -216,6 +219,174 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(networkManager.ConnectCall.CallCount).To(Equal(0))
+			})
+		})
+
+		context("failure cases", func() {
+			context("when the lifecycle cannot be built", func() {
+				it.Before(func() {
+					lifecycleBuilder.BuildCall.Returns.Err = errors.New("could not build lifecycle")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to build lifecycle: could not build lifecycle"))
+				})
+			})
+
+			context("when the buildpacks cannot be built", func() {
+				it.Before(func() {
+					buildpacksBuilder.BuildCall.Returns.Err = errors.New("could not build buildpacks")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to build buildpacks: could not build buildpacks"))
+				})
+			})
+
+			context("when the source cannot be archived", func() {
+				it.Before(func() {
+					archiver.CompressCall.Returns.Error = errors.New("could not compress source")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to archive source code: could not compress source"))
+				})
+			})
+
+			context("when the image cannot be pulled", func() {
+				it.Before(func() {
+					client.ImagePullCall.Returns.Error = errors.New("could not pull image")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to pull base image: could not pull image"))
+				})
+			})
+
+			context("when the pull logs cannot be copied", func() {
+				it.Before(func() {
+					client.ImagePullCall.Returns.ReadCloser = io.NopCloser(iotest.ErrReader(errors.New("could not read logs")))
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to copy image pull logs: could not read logs"))
+				})
+			})
+
+			context("when the network cannot be created", func() {
+				it.Before(func() {
+					networkManager.CreateCall.Returns.Error = errors.New("could not create network")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to create network: could not create network"))
+				})
+			})
+
+			context("when the buildpack order cannot be listed", func() {
+				it.Before(func() {
+					buildpacksBuilder.OrderCall.Returns.Err = errors.New("could not order buildpacks")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to determine buildpack ordering: could not order buildpacks"))
+				})
+			})
+
+			context("when the container cannot be created", func() {
+				it.Before(func() {
+					client.ContainerCreateCall.Returns.Error = errors.New("could not create container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to create staging container: could not create container"))
+				})
+			})
+
+			context("when the network cannot be connected", func() {
+				it.Before(func() {
+					networkManager.ConnectCall.Returns.Error = errors.New("could not connect network")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to connect container to network: could not connect network"))
+				})
+			})
+
+			context("when the lifecycle cannot be opened", func() {
+				it.Before(func() {
+					Expect(os.Chmod(filepath.Join(workspace, "lifecycle", "lifecycle.tar.gz"), 0000)).To(Succeed())
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to open tarball:")))
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
+			})
+
+			context("when the lifecycle cannot be copied to the container", func() {
+				it.Before(func() {
+					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
+						b, err := io.ReadAll(content)
+						if err != nil {
+							return err
+						}
+
+						if strings.Contains(string(b), "lifecycle") {
+							return errors.New("could not copy lifecycle to container")
+						}
+
+						return nil
+					}
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to copy tarball to container: could not copy lifecycle to container"))
+				})
 			})
 		})
 	})

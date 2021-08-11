@@ -45,7 +45,7 @@ func NewBuildpacksManager(archiver Archiver, cache BPCache, registry BPRegistry)
 func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 	buildpacks, err := m.registry.List()
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to list buildpacks: %w", err)
 	}
 
 	for _, buildpack := range buildpacks {
@@ -63,24 +63,24 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 
 		bp, err := m.cache.Fetch(buildpack.URI)
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to fetch buildpack: %w", err)
 		}
 
 		err = vacation.NewZipArchive(bp).Decompress(filepath.Join(workspace, name, fmt.Sprintf("%x", md5.Sum([]byte(buildpack.Name)))))
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to decompress buildpack: %w", err)
 		}
 
 		err = bp.Close()
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to close buildpack: %w", err)
 		}
 	}
 
 	output := filepath.Join(workspace, fmt.Sprintf("%s.tar.gz", name))
 	err = m.archiver.WithPrefix("/tmp/buildpacks").Compress(filepath.Join(workspace, name), output)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to archive buildpacks: %w", err)
 	}
 
 	return output, nil
@@ -90,7 +90,7 @@ func (m BuildpacksManager) Order() (string, bool, error) {
 	var names []string
 	buildpacks, err := m.registry.List()
 	if err != nil {
-		panic(err)
+		return "", false, fmt.Errorf("failed to list buildpacks: %w", err)
 	}
 
 	if len(m.filter) > 0 {

@@ -1,7 +1,9 @@
 package docker
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,12 +38,12 @@ func (b LifecycleManager) Build(sourceURI, workspace string) (string, error) {
 
 	req, err := http.NewRequest("GET", sourceURI, nil)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	etag, err := os.ReadFile(filepath.Join(workspace, "etag"))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		panic(err)
+		return "", fmt.Errorf("failed to read etag: %w", err)
 	}
 
 	if len(etag) > 0 {
@@ -50,7 +52,7 @@ func (b LifecycleManager) Build(sourceURI, workspace string) (string, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to complete request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -61,15 +63,16 @@ func (b LifecycleManager) Build(sourceURI, workspace string) (string, error) {
 
 	err = os.RemoveAll(workspace)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to clear workspace: %w", err)
 	}
 
 	err = vacation.NewZipArchive(resp.Body).StripComponents(1).Decompress(filepath.Join(workspace, "repo"))
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to decompress lifecycle repo: %w", err)
 	}
 
 	env := append(os.Environ(), "GOOS=linux", "GOARCH=amd64")
+	buffer := bytes.NewBuffer(nil)
 
 	_, err = os.Stat(filepath.Join(workspace, "repo", "go.mod"))
 	if errors.Is(err, os.ErrNotExist) {
@@ -77,62 +80,62 @@ func (b LifecycleManager) Build(sourceURI, workspace string) (string, error) {
 			Args:   []string{"mod", "init", "code.cloudfoundry.org/buildpackapplifecycle"},
 			Env:    env,
 			Dir:    filepath.Join(workspace, "repo"),
-			Stdout: os.Stdout, // TODO: remove
-			Stderr: os.Stderr, // TODO: remove
+			Stdout: buffer,
+			Stderr: buffer,
 		})
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("failed to initialize go module: %w\n\n%s", err, buffer)
 		}
 	} else if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to stat go.mod: %w", err)
 	}
 
 	err = b.golang.Execute(pexec.Execution{
 		Args:   []string{"mod", "tidy"},
 		Env:    env,
 		Dir:    filepath.Join(workspace, "repo"),
-		Stdout: os.Stdout, // TODO: remove
-		Stderr: os.Stderr, // TODO: remove
+		Stdout: buffer,
+		Stderr: buffer,
 	})
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to tidy go module: %w\n\n%s", err, buffer)
 	}
 
 	err = os.MkdirAll(filepath.Join(workspace, "output"), os.ModePerm)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	err = b.golang.Execute(pexec.Execution{
 		Args:   []string{"build", "-o", filepath.Join(workspace, "output", "builder"), "./builder"},
 		Env:    env,
 		Dir:    filepath.Join(workspace, "repo"),
-		Stdout: os.Stdout, // TODO: remove
-		Stderr: os.Stderr, // TODO: remove
+		Stdout: buffer,
+		Stderr: buffer,
 	})
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to build lifecycle builder: %w\n\n%s", err, buffer)
 	}
 
 	err = b.golang.Execute(pexec.Execution{
 		Args:   []string{"build", "-o", filepath.Join(workspace, "output", "launcher"), "./launcher"},
 		Env:    env,
 		Dir:    filepath.Join(workspace, "repo"),
-		Stdout: os.Stdout, // TODO: remove
-		Stderr: os.Stderr, // TODO: remove
+		Stdout: buffer,
+		Stderr: buffer,
 	})
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to build lifecycle launcher: %w\n\n%s", err, buffer)
 	}
 
 	err = b.archiver.WithPrefix("/tmp/lifecycle").Compress(filepath.Join(workspace, "output"), output)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to archive lifecycle: %w", err)
 	}
 
 	err = os.WriteFile(filepath.Join(workspace, "etag"), []byte(resp.Header.Get("ETag")), 0600)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to write lifecycle etag file: %w", err)
 	}
 
 	return output, nil

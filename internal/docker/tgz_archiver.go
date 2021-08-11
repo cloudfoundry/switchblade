@@ -3,6 +3,7 @@ package docker
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -26,12 +27,12 @@ func (a TGZArchiver) WithPrefix(prefix string) Archiver {
 func (a TGZArchiver) Compress(input, output string) error {
 	err := os.MkdirAll(filepath.Dir(output), os.ModePerm)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	file, err := os.Create(output)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer file.Close()
 
@@ -43,14 +44,14 @@ func (a TGZArchiver) Compress(input, output string) error {
 
 	err = filepath.Walk(input, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("failed to walk input path: %w", err)
 		}
 
 		var link string
 		if info.Mode()&os.ModeType != 0 && !info.IsDir() {
 			link, err = os.Readlink(path)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("failed to read symlink: %w", err)
 			}
 
 			if !strings.HasPrefix(link, string(filepath.Separator)) {
@@ -59,18 +60,18 @@ func (a TGZArchiver) Compress(input, output string) error {
 
 			link, err = filepath.Rel(filepath.Dir(path), link)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("failed to find link path relative to path: %w", err)
 			}
 		}
 
 		rel, err := filepath.Rel(input, path)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("failed to find path relative to input: %w", err)
 		}
 
 		header, err := tar.FileInfoHeader(info, link)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("failed to create tar header: %w", err)
 		}
 
 		header.Name = filepath.Join(a.prefix, rel)
@@ -81,26 +82,26 @@ func (a TGZArchiver) Compress(input, output string) error {
 
 		err = tw.WriteHeader(header)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("failed to write tar header: %w", err)
 		}
 
 		if info.Mode().IsRegular() {
 			f, err := os.Open(path)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("failed to open file: %w", err)
 			}
 			defer f.Close()
 
 			_, err = io.Copy(tw, f)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("failed to copy file: %w", err)
 			}
 		}
 
 		return nil
 	})
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to walk input path: %w", err)
 	}
 
 	return nil

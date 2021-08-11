@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -49,20 +48,11 @@ func NewStart(client StartClient, networks StartNetworkManager, workspace string
 }
 
 func (s Start) Run(ctx context.Context, logs io.Writer, name, command string) (string, string, error) {
-	vcapApplication, err := json.Marshal(map[string]string{
-		"application_name": name,
-		"name":             name,
-		"process_type":     "web",
-	})
-	if err != nil {
-		panic(err)
-	}
-
 	env := []string{
 		"LANG=en_US.UTF-8",
 		"MEMORY_LIMIT=1024m",
 		"PORT=8080",
-		fmt.Sprintf("VCAP_APPLICATION=%s", vcapApplication),
+		fmt.Sprintf(`VCAP_APPLICATION={"application_name":%[1]q,"name":%[1]q,"process_type":"web"}`, name),
 		"VCAP_PLATFORM_OPTIONS={}",
 		"VCAP_SERVICES={}",
 	}
@@ -91,44 +81,44 @@ func (s Start) Run(ctx context.Context, logs io.Writer, name, command string) (s
 
 	resp, err := s.client.ContainerCreate(ctx, &containerConfig, &hostConfig, nil, nil, name)
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to create running container: %w", err)
 	}
 
 	err = s.networks.Connect(ctx, resp.ID, BridgeNetworkName)
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to connect container to network: %w", err)
 	}
 
 	lifecycleTarball, err := os.Open(filepath.Join(s.workspace, "lifecycle", "lifecycle.tar.gz"))
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to open lifecycle: %w", err)
 	}
 	defer lifecycleTarball.Close()
 
 	err = s.client.CopyToContainer(ctx, resp.ID, "/", lifecycleTarball, types.CopyToContainerOptions{})
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to copy lifecycle into container: %w", err)
 	}
 
 	dropletTarball, err := os.Open(filepath.Join(s.workspace, "droplets", fmt.Sprintf("%s.tar.gz", name)))
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to open droplet: %w", err)
 	}
 	defer dropletTarball.Close()
 
 	err = s.client.CopyToContainer(ctx, resp.ID, "/home/vcap/", dropletTarball, types.CopyToContainerOptions{})
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to copy droplet into container: %w", err)
 	}
 
 	err = s.client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to start container: %w", err)
 	}
 
 	container, err := s.client.ContainerInspect(ctx, resp.ID)
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to inspect container: %w", err)
 	}
 
 	var externalURL string
