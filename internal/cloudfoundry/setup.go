@@ -61,6 +61,11 @@ func (s Setup) Run(log io.Writer, home, name, source string) error {
 		return fmt.Errorf("failed to make temporary $CF_HOME: %w", err)
 	}
 
+	err = os.RemoveAll(filepath.Join(home, ".cf"))
+	if err != nil {
+		return fmt.Errorf("failed to clear temporary $CF_HOME: %w", err)
+	}
+
 	err = fs.Copy(s.home, filepath.Join(home, ".cf"))
 	if err != nil {
 		return fmt.Errorf("failed to copy $CF_HOME: %w", err)

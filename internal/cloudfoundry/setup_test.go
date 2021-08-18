@@ -70,6 +70,12 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			err = os.WriteFile(filepath.Join(home, "config.json"), []byte(`{"Target": "https://localhost"}`), 0600)
 			Expect(err).NotTo(HaveOccurred())
 
+			err = os.MkdirAll(filepath.Join(workspace, "some-home", ".cf"), os.ModePerm)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = os.WriteFile(filepath.Join(workspace, "some-home", ".cf", "config.json"), []byte(`{"Target": "https://example.com"}`), 0600)
+			Expect(err).NotTo(HaveOccurred())
+
 			setup = cloudfoundry.NewSetup(executable, home)
 		})
 
@@ -244,6 +250,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when the home directory cannot be created", func() {
 				it.Before(func() {
 					Expect(os.Chmod(workspace, 0000)).To(Succeed())
+				})
+
+				it.After(func() {
+					Expect(os.Chmod(workspace, os.ModePerm)).To(Succeed())
 				})
 
 				it("returns an error", func() {
