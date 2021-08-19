@@ -23,44 +23,44 @@ platform only uses Docker. There is no other "magic".
 package integration_test
 
 import (
-	"log"
-	"testing"
+  "log"
+  "testing"
 
-	"github.com/ryanmoran/switchblade"
+  "github.com/ryanmoran/switchblade"
 
-	. "github.com/onsi/gomega"
-	. "github.com/ryanmoran/switchblade/matchers"
+  . "github.com/onsi/gomega"
+  . "github.com/ryanmoran/switchblade/matchers"
 )
 
 func TestCloudFoundry(t *testing.T) {
-	var (
-		Expect     = NewWithT(t).Expect
-		Eventually = NewWithT(t).Eventually
-	)
+  var (
+    Expect     = NewWithT(t).Expect
+    Eventually = NewWithT(t).Eventually
+  )
 
   // Create an instance of a Cloud Foundry platform. A GitHub token is required
   // to make API requests to GitHub fetching buildpack details.
-	platform, err := switchblade.NewPlatform(switchblade.CloudFoundry, "<github-api-token>")
-	if err != nil {
-		log.Fatal(err)
-	}
+  platform, err := switchblade.NewPlatform(switchblade.CloudFoundry, "<github-api-token>")
+  if err != nil {
+    log.Fatal(err)
+  }
 
   // Deploy an application called "my-app" onto Cloud Foundry with source code
   // located at /path/to/my/app/source. This is similar to the following `cf`
   // command:
   //   cf push my-app -p /path/to/my/app
-	deployment, logs, err := platform.Deploy.Execute("my-app", "/path/to/my/app/source")
-	if err != nil {
-		log.Fatal(err)
-	}
+  deployment, logs, err := platform.Deploy.Execute("my-app", "/path/to/my/app/source")
+  if err != nil {
+    log.Fatal(err)
+  }
 
   // Assert that the deployment logs contain a line that contains the substring
   // "Installing dependency..."
-	Expect(logs).To(ContainLines(ContainSubstring("Installing dependency...")))
+  Expect(logs).To(ContainLines(ContainSubstring("Installing dependency...")))
 
   // Assert that the deployment results in an application instance that serves
   // "Hello, world!" over HTTP.
-	Eventually(deployment).Should(Serve(ContainSubstring("Hello, world!")))
+  Eventually(deployment).Should(Serve(ContainSubstring("Hello, world!")))
 }
 ```
 
@@ -70,45 +70,44 @@ func TestCloudFoundry(t *testing.T) {
 package integration_test
 
 import (
-	"log"
-	"testing"
+  "log"
+  "testing"
 
-	"github.com/ryanmoran/switchblade"
+  "github.com/ryanmoran/switchblade"
 
-	. "github.com/onsi/gomega"
-	. "github.com/ryanmoran/switchblade/matchers"
+  . "github.com/onsi/gomega"
+  . "github.com/ryanmoran/switchblade/matchers"
 )
 
 func TestDocker(t *testing.T) {
-	var (
-		Expect     = NewWithT(t).Expect
-		Eventually = NewWithT(t).Eventually
-	)
+  var (
+    Expect     = NewWithT(t).Expect
+    Eventually = NewWithT(t).Eventually
+  )
 
   // Create an instance of a Docker platform. A GitHub token is required to
   // make API requests to GitHub fetching buildpack details.
-	platform, err := switchblade.NewPlatform(switchblade.Docker, "<github-api-token>")
-	if err != nil {
-		log.Fatal(err)
-	}
+  platform, err := switchblade.NewPlatform(switchblade.Docker, "<github-api-token>")
+  if err != nil {
+    log.Fatal(err)
+  }
 
   // Deploy an application called "my-app" onto Docker with source code
   // located at /path/to/my/app/source. This is similar to the following `cf`
   // command, but running locally on your Docker daemon:
   //   cf push my-app -p /path/to/my/app
-  go_buildpack
-	deployment, logs, err := platform.Deploy.Execute("my-app", "/path/to/my/app/source")
-	if err != nil {
-		log.Fatal(err)
-	}
+  deployment, logs, err := platform.Deploy.Execute("my-app", "/path/to/my/app/source")
+  if err != nil {
+    log.Fatal(err)
+  }
 
   // Assert that the deployment logs contain a line that contains the substring
   // "Installing dependency..."
-	Expect(logs).To(ContainLines(ContainSubstring("Installing dependency...")))
+  Expect(logs).To(ContainLines(ContainSubstring("Installing dependency...")))
 
   // Assert that the deployment results in an application instance that serves
   // "Hello, world!" over HTTP.
-	Eventually(deployment).Should(Serve(ContainSubstring("Hello, world!")))
+  Eventually(deployment).Should(Serve(ContainSubstring("Hello, world!")))
 }
 ```
 
