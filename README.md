@@ -41,18 +41,14 @@ func TestCloudFoundry(t *testing.T) {
   // Create an instance of a Cloud Foundry platform. A GitHub token is required
   // to make API requests to GitHub fetching buildpack details.
   platform, err := switchblade.NewPlatform(switchblade.CloudFoundry, "<github-api-token>")
-  if err != nil {
-    log.Fatal(err)
-  }
+  Expect(err).NotTo(HaveOccurred())
 
   // Deploy an application called "my-app" onto Cloud Foundry with source code
   // located at /path/to/my/app/source. This is similar to the following `cf`
   // command:
   //   cf push my-app -p /path/to/my/app
   deployment, logs, err := platform.Deploy.Execute("my-app", "/path/to/my/app/source")
-  if err != nil {
-    log.Fatal(err)
-  }
+  Expect(err).NotTo(HaveOccurred())
 
   // Assert that the deployment logs contain a line that contains the substring
   // "Installing dependency..."
@@ -61,6 +57,9 @@ func TestCloudFoundry(t *testing.T) {
   // Assert that the deployment results in an application instance that serves
   // "Hello, world!" over HTTP.
   Eventually(deployment).Should(Serve(ContainSubstring("Hello, world!")))
+
+  // Delete the application from the platform.
+  Expect(platform.Delete.Execute("my-app")).To(Succeed())
 }
 ```
 
@@ -88,18 +87,14 @@ func TestDocker(t *testing.T) {
   // Create an instance of a Docker platform. A GitHub token is required to
   // make API requests to GitHub fetching buildpack details.
   platform, err := switchblade.NewPlatform(switchblade.Docker, "<github-api-token>")
-  if err != nil {
-    log.Fatal(err)
-  }
+  Expect(err).NotTo(HaveOccurred())
 
   // Deploy an application called "my-app" onto Docker with source code
   // located at /path/to/my/app/source. This is similar to the following `cf`
   // command, but running locally on your Docker daemon:
   //   cf push my-app -p /path/to/my/app
   deployment, logs, err := platform.Deploy.Execute("my-app", "/path/to/my/app/source")
-  if err != nil {
-    log.Fatal(err)
-  }
+  Expect(err).NotTo(HaveOccurred())
 
   // Assert that the deployment logs contain a line that contains the substring
   // "Installing dependency..."
@@ -108,6 +103,9 @@ func TestDocker(t *testing.T) {
   // Assert that the deployment results in an application instance that serves
   // "Hello, world!" over HTTP.
   Eventually(deployment).Should(Serve(ContainSubstring("Hello, world!")))
+
+  // Delete the application from the platform.
+  Expect(platform.Delete.Execute("my-app")).To(Succeed())
 }
 ```
 
@@ -121,9 +119,6 @@ func TestDocker(t *testing.T) {
 deployment, logs, err := platform.Deploy.
   WithBuildpacks("ruby_buildpack", "go_buildpack").
   Execute("my-app", "/path/to/my/app/source")
-if err != nil {
-  log.Fatal(err)
-}
 ```
 
 ### Specifying environment variables: `WithEnv`
@@ -138,9 +133,6 @@ deployment, logs, err := platform.Deploy.
     "SOME_KEY": "some-value",
   }).
   Execute("my-app", "/path/to/my/app/source")
-if err != nil {
-  log.Fatal(err)
-}
 ```
 
 ### Disabling internet access: `WithoutInternetAccess`
@@ -152,9 +144,6 @@ if err != nil {
 deployment, logs, err := platform.Deploy.
   WithoutInternetAccess().
   Execute("my-app", "/path/to/my/app/source")
-if err != nil {
-  log.Fatal(err)
-}
 ```
 
 ### Specifying service bindings: `WithServices`
@@ -172,7 +161,22 @@ deployment, logs, err := platform.Deploy.
     },
   }).
   Execute("my-app", "/path/to/my/app/source")
+```
+
+## Other utilities
+
+### Random name generation: `RandomName`
+
+The `switchblade.RandomName` helper can generate random names. This is useful
+for keeping your applications reasonably namespaced in the shared platform. The
+names generated will include the prefix `switchblade-` following by a
+[ULID](https://github.com/ulid/spec).
+
+```go
+name, err := switchblade.RandomName()
 if err != nil {
   log.Fatal(err)
 }
+
+fmt.Println(name) // Outputs: switchblade-<some-ulid>
 ```
