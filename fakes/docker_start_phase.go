@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	"context"
+	gocontext "context"
 	"io"
 	"sync"
 
@@ -13,7 +13,7 @@ type DockerStartPhase struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx     context.Context
+			Ctx     gocontext.Context
 			Logs    io.Writer
 			Name    string
 			Command string
@@ -23,7 +23,7 @@ type DockerStartPhase struct {
 			InternalURL string
 			Err         error
 		}
-		Stub func(context.Context, io.Writer, string, string) (string, string, error)
+		Stub func(gocontext.Context, io.Writer, string, string) (string, string, error)
 	}
 	WithEnvCall struct {
 		sync.Mutex
@@ -36,9 +36,22 @@ type DockerStartPhase struct {
 		}
 		Stub func(map[string]string) docker.StartPhase
 	}
+	WithServicesCall struct {
+		sync.Mutex
+		CallCount int
+		Receives  struct {
+			Services map[string]map[string]interface {
+			}
+		}
+		Returns struct {
+			StartPhase docker.StartPhase
+		}
+		Stub func(map[string]map[string]interface {
+		}) docker.StartPhase
+	}
 }
 
-func (f *DockerStartPhase) Run(param1 context.Context, param2 io.Writer, param3 string, param4 string) (string, string, error) {
+func (f *DockerStartPhase) Run(param1 gocontext.Context, param2 io.Writer, param3 string, param4 string) (string, string, error) {
 	f.RunCall.Lock()
 	defer f.RunCall.Unlock()
 	f.RunCall.CallCount++
@@ -60,4 +73,15 @@ func (f *DockerStartPhase) WithEnv(param1 map[string]string) docker.StartPhase {
 		return f.WithEnvCall.Stub(param1)
 	}
 	return f.WithEnvCall.Returns.StartPhase
+}
+func (f *DockerStartPhase) WithServices(param1 map[string]map[string]interface {
+}) docker.StartPhase {
+	f.WithServicesCall.Lock()
+	defer f.WithServicesCall.Unlock()
+	f.WithServicesCall.CallCount++
+	f.WithServicesCall.Receives.Services = param1
+	if f.WithServicesCall.Stub != nil {
+		return f.WithServicesCall.Stub(param1)
+	}
+	return f.WithServicesCall.Returns.StartPhase
 }

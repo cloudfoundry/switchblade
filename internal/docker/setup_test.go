@@ -126,6 +126,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				User: "vcap",
 				Env: []string{
 					"CF_STACK=cflinuxfs3",
+					"VCAP_SERVICES={}",
 				},
 				WorkingDir: "/home/vcap",
 			}))
@@ -204,6 +205,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 					"CF_STACK=cflinuxfs3",
 					"OTHER_KEY=other-value",
 					"SOME_KEY=some-value",
+					"VCAP_SERVICES={}",
 				}))
 			})
 		})
@@ -219,6 +221,30 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(networkManager.ConnectCall.CallCount).To(Equal(0))
+			})
+		})
+
+		context("WithServices", func() {
+			it("sets up VCAP_SERVICES with those services", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				_, err := setup.
+					WithServices(map[string]map[string]interface{}{
+						"some-service": map[string]interface{}{
+							"some-key": "some-value",
+						},
+						"other-service": map[string]interface{}{
+							"other-key": "other-value",
+						},
+					}).
+					Run(ctx, logs, "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(client.ContainerCreateCall.Receives.Config.Env).To(ConsistOf([]string{
+					"CF_STACK=cflinuxfs3",
+					`VCAP_SERVICES={"user-provided":[{"credentials":{"other-key":"other-value"},"name":"some-app-other-service"},{"credentials":{"some-key":"some-value"},"name":"some-app-some-service"}]}`,
+				}))
 			})
 		})
 
@@ -304,6 +330,23 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError("failed to create network: could not create network"))
+				})
+			})
+
+			context("when service bindings cannot be marshalled to json", func() {
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.
+						WithServices(map[string]map[string]interface{}{
+							"some-service": map[string]interface{}{
+								"some-key": func() {},
+							},
+						}).
+						Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to marshal services json")))
+					Expect(err).To(MatchError(ContainSubstring("unsupported type: func()")))
 				})
 			})
 

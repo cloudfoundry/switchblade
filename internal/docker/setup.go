@@ -2,11 +2,13 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -27,6 +29,7 @@ type SetupPhase interface {
 	WithBuildpacks(buildpacks ...string) SetupPhase
 	WithEnv(env map[string]string) SetupPhase
 	WithoutInternetAccess() SetupPhase
+	WithServices(services map[string]map[string]interface{}) SetupPhase
 }
 
 //go:generate faux --interface SetupClient --output fakes/setup_client.go
@@ -69,6 +72,7 @@ type Setup struct {
 	workspace          string
 	env                map[string]string
 	disconnectInternet bool
+	services           map[string]map[string]interface{}
 }
 
 func NewSetup(client SetupClient, lifecycle LifecycleBuilder, buildpacks BuildpacksBuilder, archiver Archiver, networks SetupNetworkManager, workspace string) Setup {
@@ -118,6 +122,33 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 	env := []string{"CF_STACK=cflinuxfs3"}
 	for key, value := range s.env {
 		env = append(env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	var serviceKeys []string
+	for key := range s.services {
+		serviceKeys = append(serviceKeys, key)
+	}
+	sort.Strings(serviceKeys)
+
+	var services []map[string]interface{}
+	for _, key := range serviceKeys {
+		services = append(services, map[string]interface{}{
+			"name":        fmt.Sprintf("%s-%s", name, key),
+			"credentials": s.services[key],
+		})
+	}
+
+	if len(services) > 0 {
+		content, err := json.Marshal(map[string]interface{}{
+			"user-provided": services,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal services json: %w", err)
+		}
+
+		env = append(env, fmt.Sprintf("VCAP_SERVICES=%s", content))
+	} else {
+		env = append(env, "VCAP_SERVICES={}")
 	}
 
 	order, skipDetect, err := s.buildpacks.Order()
@@ -189,5 +220,10 @@ func (s Setup) WithEnv(env map[string]string) SetupPhase {
 
 func (s Setup) WithoutInternetAccess() SetupPhase {
 	s.disconnectInternet = true
+	return s
+}
+
+func (s Setup) WithServices(services map[string]map[string]interface{}) SetupPhase {
+	s.services = services
 	return s
 }

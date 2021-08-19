@@ -21,6 +21,7 @@ type SetupPhase interface {
 	WithBuildpacks(buildpacks ...string) SetupPhase
 	WithEnv(env map[string]string) SetupPhase
 	WithoutInternetAccess() SetupPhase
+	WithServices(services map[string]map[string]interface{}) SetupPhase
 }
 
 type Setup struct {
@@ -30,6 +31,7 @@ type Setup struct {
 	internetAccess bool
 	buildpacks     []string
 	env            map[string]string
+	services       map[string]map[string]interface{}
 }
 
 func NewSetup(cli Executable, home string) Setup {
@@ -52,6 +54,11 @@ func (s Setup) WithEnv(env map[string]string) SetupPhase {
 
 func (s Setup) WithoutInternetAccess() SetupPhase {
 	s.internetAccess = false
+	return s
+}
+
+func (s Setup) WithServices(services map[string]map[string]interface{}) SetupPhase {
+	s.services = services
 	return s
 }
 
@@ -200,13 +207,13 @@ func (s Setup) Run(log io.Writer, home, name, source string) error {
 		return fmt.Errorf("failed to push: %w\n\nOutput:\n%s", err, log)
 	}
 
-	var keys []string
+	var envKeys []string
 	for key := range s.env {
-		keys = append(keys, key)
+		envKeys = append(envKeys, key)
 	}
-	sort.Strings(keys)
+	sort.Strings(envKeys)
 
-	for _, key := range keys {
+	for _, key := range envKeys {
 		err = s.cli.Execute(pexec.Execution{
 			Args:   []string{"set-env", name, key, s.env[key]},
 			Stdout: log,
@@ -215,6 +222,40 @@ func (s Setup) Run(log io.Writer, home, name, source string) error {
 		})
 		if err != nil {
 			return fmt.Errorf("failed to set-env: %w\n\nOutput:\n%s", err, log)
+		}
+	}
+
+	var serviceKeys []string
+	for key := range s.services {
+		serviceKeys = append(serviceKeys, key)
+	}
+	sort.Strings(serviceKeys)
+
+	for _, key := range serviceKeys {
+		content, err := json.Marshal(s.services[key])
+		if err != nil {
+			return fmt.Errorf("failed to marshal services json: %w", err)
+		}
+
+		service := fmt.Sprintf("%s-%s", name, key)
+		err = s.cli.Execute(pexec.Execution{
+			Args:   []string{"create-user-provided-service", service, "-p", string(content)},
+			Stdout: log,
+			Stderr: log,
+			Env:    env,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create-user-provided-service: %w\n\nOutput:\n%s", err, log)
+		}
+
+		err = s.cli.Execute(pexec.Execution{
+			Args:   []string{"bind-service", name, service},
+			Stdout: log,
+			Stderr: log,
+			Env:    env,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to bind-service: %w\n\nOutput:\n%s", err, log)
 		}
 	}
 

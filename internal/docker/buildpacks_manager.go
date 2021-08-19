@@ -4,9 +4,11 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/paketo-buildpacks/packit/fs"
 	"github.com/paketo-buildpacks/packit/vacation"
 )
 
@@ -66,9 +68,25 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 			return "", fmt.Errorf("failed to fetch buildpack: %w", err)
 		}
 
-		err = vacation.NewZipArchive(bp).Decompress(filepath.Join(workspace, name, fmt.Sprintf("%x", md5.Sum([]byte(buildpack.Name)))))
-		if err != nil {
-			return "", fmt.Errorf("failed to decompress buildpack: %w", err)
+		var isDir bool
+		if file, ok := bp.(interface{ Stat() (os.FileInfo, error) }); ok {
+			info, err := file.Stat()
+			if err != nil {
+				return "", fmt.Errorf("failed to stat buildpack: %w", err)
+			}
+
+			isDir = info.IsDir()
+		}
+
+		destination := filepath.Join(workspace, name, fmt.Sprintf("%x", md5.Sum([]byte(buildpack.Name))))
+
+		if isDir {
+			err = fs.Copy(buildpack.URI, destination)
+		} else {
+			err = vacation.NewZipArchive(bp).Decompress(destination)
+			if err != nil {
+				return "", fmt.Errorf("failed to decompress buildpack: %w", err)
+			}
 		}
 
 		err = bp.Close()

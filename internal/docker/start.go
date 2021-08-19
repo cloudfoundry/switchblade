@@ -2,10 +2,12 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -17,6 +19,7 @@ import (
 type StartPhase interface {
 	Run(ctx context.Context, logs io.Writer, name, command string) (externalURL, internalURL string, err error)
 	WithEnv(env map[string]string) StartPhase
+	WithServices(services map[string]map[string]interface{}) StartPhase
 }
 
 //go:generate faux --interface StartClient --output fakes/start_client.go
@@ -37,6 +40,7 @@ type Start struct {
 	networks  StartNetworkManager
 	workspace string
 	env       map[string]string
+	services  map[string]map[string]interface{}
 }
 
 func NewStart(client StartClient, networks StartNetworkManager, workspace string) Start {
@@ -54,10 +58,36 @@ func (s Start) Run(ctx context.Context, logs io.Writer, name, command string) (s
 		"PORT=8080",
 		fmt.Sprintf(`VCAP_APPLICATION={"application_name":%[1]q,"name":%[1]q,"process_type":"web"}`, name),
 		"VCAP_PLATFORM_OPTIONS={}",
-		"VCAP_SERVICES={}",
 	}
 	for key, value := range s.env {
 		env = append(env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	var serviceKeys []string
+	for key := range s.services {
+		serviceKeys = append(serviceKeys, key)
+	}
+	sort.Strings(serviceKeys)
+
+	var services []map[string]interface{}
+	for _, key := range serviceKeys {
+		services = append(services, map[string]interface{}{
+			"name":        fmt.Sprintf("%s-%s", name, key),
+			"credentials": s.services[key],
+		})
+	}
+
+	if len(services) > 0 {
+		content, err := json.Marshal(map[string]interface{}{
+			"user-provided": services,
+		})
+		if err != nil {
+			return "", "", fmt.Errorf("failed to marshal services json: %w", err)
+		}
+
+		env = append(env, fmt.Sprintf("VCAP_SERVICES=%s", content))
+	} else {
+		env = append(env, "VCAP_SERVICES={}")
 	}
 
 	containerConfig := container.Config{
@@ -142,5 +172,10 @@ func (s Start) Run(ctx context.Context, logs io.Writer, name, command string) (s
 
 func (s Start) WithEnv(env map[string]string) StartPhase {
 	s.env = env
+	return s
+}
+
+func (s Start) WithServices(services map[string]map[string]interface{}) StartPhase {
+	s.services = services
 	return s
 }

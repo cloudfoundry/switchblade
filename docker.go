@@ -81,6 +81,17 @@ func (p DockerDeployProcess) WithoutInternetAccess() DeployProcess {
 	return p
 }
 
+func (p DockerDeployProcess) WithServices(services map[string]Service) DeployProcess {
+	s := make(map[string]map[string]interface{})
+	for name, service := range services {
+		s[name] = service
+	}
+
+	p.setup = p.setup.WithServices(s)
+	p.start = p.start.WithServices(s)
+	return p
+}
+
 func (p DockerDeployProcess) Execute(name, path string) (Deployment, fmt.Stringer, error) {
 	ctx := context.Background()
 	logs := bytes.NewBuffer(nil)

@@ -46,6 +46,19 @@ type DockerSetupPhase struct {
 		}
 		Stub func(map[string]string) docker.SetupPhase
 	}
+	WithServicesCall struct {
+		sync.Mutex
+		CallCount int
+		Receives  struct {
+			Services map[string]map[string]interface {
+			}
+		}
+		Returns struct {
+			SetupPhase docker.SetupPhase
+		}
+		Stub func(map[string]map[string]interface {
+		}) docker.SetupPhase
+	}
 	WithoutInternetAccessCall struct {
 		sync.Mutex
 		CallCount int
@@ -88,6 +101,17 @@ func (f *DockerSetupPhase) WithEnv(param1 map[string]string) docker.SetupPhase {
 		return f.WithEnvCall.Stub(param1)
 	}
 	return f.WithEnvCall.Returns.SetupPhase
+}
+func (f *DockerSetupPhase) WithServices(param1 map[string]map[string]interface {
+}) docker.SetupPhase {
+	f.WithServicesCall.Lock()
+	defer f.WithServicesCall.Unlock()
+	f.WithServicesCall.CallCount++
+	f.WithServicesCall.Receives.Services = param1
+	if f.WithServicesCall.Stub != nil {
+		return f.WithServicesCall.Stub(param1)
+	}
+	return f.WithServicesCall.Returns.SetupPhase
 }
 func (f *DockerSetupPhase) WithoutInternetAccess() docker.SetupPhase {
 	f.WithoutInternetAccessCall.Lock()

@@ -36,12 +36,24 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 		workspace, err = os.MkdirTemp("", "workspace")
 		Expect(err).NotTo(HaveOccurred())
 
+		Expect(os.Mkdir(filepath.Join(workspace, "some-buildpack"), os.ModePerm)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(workspace, "some-buildpack", "some-file"), []byte("some-content"), 0600)).To(Succeed())
+
 		archiver = &fakes.Archiver{}
 		archiver.WithPrefixCall.Returns.Archiver = archiver
 
 		cache = &fakes.BPCache{}
 		cache.FetchCall.Stub = func(url string) (io.ReadCloser, error) {
 			cacheFetchInvocations = append(cacheFetchInvocations, cacheFetchInvocation{URL: url})
+
+			if url == filepath.Join(workspace, "some-buildpack") {
+				fd, err := os.Open(url)
+				if err != nil {
+					return nil, err
+				}
+
+				return fd, nil
+			}
 
 			buffer := bytes.NewBuffer(nil)
 			writer := zip.NewWriter(buffer)
@@ -72,6 +84,10 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 				URI:  "some-go-uri",
 			},
 			{
+				Name: "directory-buildpack",
+				URI:  filepath.Join(workspace, "some-buildpack"),
+			},
+			{
 				Name: "nodejs-buildpack",
 				URI:  "some-nodejs-uri",
 			},
@@ -90,7 +106,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(buildpacks).To(Equal(filepath.Join(workspace, "some-app.tar.gz")))
 
-			Expect(cacheFetchInvocations).To(HaveLen(3))
+			Expect(cacheFetchInvocations).To(HaveLen(4))
 			Expect(cacheFetchInvocations[0]).To(Equal(cacheFetchInvocation{
 				URL: "some-ruby-uri",
 			}))
@@ -98,6 +114,9 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 				URL: "some-go-uri",
 			}))
 			Expect(cacheFetchInvocations[2]).To(Equal(cacheFetchInvocation{
+				URL: filepath.Join(workspace, "some-buildpack"),
+			}))
+			Expect(cacheFetchInvocations[3]).To(Equal(cacheFetchInvocation{
 				URL: "some-nodejs-uri",
 			}))
 
@@ -111,6 +130,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 				filepath.Join(workspace, "some-app", "fb563133b31055c118e0f46f44578ed9"),
 				filepath.Join(workspace, "some-app", "01013f7c8d79af6e84e9b66bc3645322"),
 				filepath.Join(workspace, "some-app", "3bec7f3d485eee8707d275dbf41de4d5"),
+				filepath.Join(workspace, "some-app", "39d7879e97b51ef2020898a6a966a915"),
 			}))
 
 			content, err := os.ReadFile(filepath.Join(workspace, "some-app", "fb563133b31055c118e0f46f44578ed9", "some-ruby-file"))
@@ -124,6 +144,10 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			content, err = os.ReadFile(filepath.Join(workspace, "some-app", "3bec7f3d485eee8707d275dbf41de4d5", "some-nodejs-file"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(content)).To(Equal("some-nodejs-content"))
+
+			content, err = os.ReadFile(filepath.Join(workspace, "some-app", "39d7879e97b51ef2020898a6a966a915", "some-file"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("some-content"))
 		})
 
 		context("WithBuildpacks", func() {
@@ -203,7 +227,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 		it("returns a comma-separated list of the buildpacks", func() {
 			order, skipDetect, err := manager.Order()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(order).To(Equal("ruby-buildpack,go-buildpack,nodejs-buildpack"))
+			Expect(order).To(Equal("ruby-buildpack,go-buildpack,directory-buildpack,nodejs-buildpack"))
 			Expect(skipDetect).To(BeFalse())
 		})
 

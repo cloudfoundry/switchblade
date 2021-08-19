@@ -73,6 +73,16 @@ func (p CloudFoundryDeployProcess) WithoutInternetAccess() DeployProcess {
 	return p
 }
 
+func (p CloudFoundryDeployProcess) WithServices(services map[string]Service) DeployProcess {
+	s := make(map[string]map[string]interface{})
+	for name, service := range services {
+		s[name] = service
+	}
+
+	p.setup = p.setup.WithServices(s)
+	return p
+}
+
 func (p CloudFoundryDeployProcess) Execute(name, source string) (Deployment, fmt.Stringer, error) {
 	logs := bytes.NewBuffer(nil)
 	home := filepath.Join(p.workspace, name)

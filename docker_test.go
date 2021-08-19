@@ -142,6 +142,26 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("WithServices", func() {
+			it("provides those services during setup and start", func() {
+				platform.Deploy.WithServices(map[string]switchblade.Service{
+					"some-service": {
+						"some-key": "some-value",
+					},
+				})
+				Expect(setup.WithServicesCall.Receives.Services).To(Equal(map[string]map[string]interface{}{
+					"some-service": {
+						"some-key": "some-value",
+					},
+				}))
+				Expect(start.WithServicesCall.Receives.Services).To(Equal(map[string]map[string]interface{}{
+					"some-service": {
+						"some-key": "some-value",
+					},
+				}))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the setup phase errors", func() {
 				it.Before(func() {

@@ -178,7 +178,52 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("WithServices", func() {
+			it("sets up VCAP_SERVICES with those services", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				_, _, err := start.
+					WithServices(map[string]map[string]interface{}{
+						"some-service": map[string]interface{}{
+							"some-key": "some-value",
+						},
+						"other-service": map[string]interface{}{
+							"other-key": "other-value",
+						},
+					}).
+					Run(ctx, logs, "some-app", "some-command")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(client.ContainerCreateCall.Receives.Config.Env).To(ConsistOf([]string{
+					"LANG=en_US.UTF-8",
+					"MEMORY_LIMIT=1024m",
+					"PORT=8080",
+					"VCAP_PLATFORM_OPTIONS={}",
+					`VCAP_SERVICES={"user-provided":[{"credentials":{"other-key":"other-value"},"name":"some-app-other-service"},{"credentials":{"some-key":"some-value"},"name":"some-app-some-service"}]}`,
+					`VCAP_APPLICATION={"application_name":"some-app","name":"some-app","process_type":"web"}`,
+				}))
+			})
+		})
+
 		context("failure cases", func() {
+			context("when service bindings cannot be marshalled to json", func() {
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.
+						WithServices(map[string]map[string]interface{}{
+							"some-service": map[string]interface{}{
+								"some-key": func() {},
+							},
+						}).
+						Run(ctx, logs, "some-app", "some-command")
+					Expect(err).To(MatchError(ContainSubstring("failed to marshal services json")))
+					Expect(err).To(MatchError(ContainSubstring("unsupported type: func()")))
+				})
+			})
+
 			context("when the container cannot be created", func() {
 				it.Before(func() {
 					client.ContainerCreateCall.Returns.Error = errors.New("could not create container")

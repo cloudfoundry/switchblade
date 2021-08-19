@@ -16,6 +16,8 @@ type Buildpack struct {
 	URI  string
 }
 
+type Service map[string]interface{}
+
 type Platform struct {
 	initialize InitializeProcess
 
@@ -27,6 +29,7 @@ type DeployProcess interface {
 	WithBuildpacks(buildpacks ...string) DeployProcess
 	WithEnv(env map[string]string) DeployProcess
 	WithoutInternetAccess() DeployProcess
+	WithServices(map[string]Service) DeployProcess
 
 	Execute(name, path string) (Deployment, fmt.Stringer, error)
 }

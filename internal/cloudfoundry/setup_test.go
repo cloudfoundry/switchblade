@@ -55,6 +55,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 					fmt.Fprintln(execution.Stdout, "Pushing app...")
 				case strings.HasPrefix(command, "set-env"):
 					fmt.Fprintln(execution.Stdout, "Setting environment variable...")
+				case strings.HasPrefix(command, "create-user-provided-service"):
+					fmt.Fprintln(execution.Stdout, "Creating service...")
+				case strings.HasPrefix(command, "bind-service"):
+					fmt.Fprintln(execution.Stdout, "Binding service...")
 				}
 
 				return nil
@@ -178,6 +182,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				Expect(executions).To(HaveLen(7))
 				Expect(executions[6]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start", "-b", "some-buildpack", "-b", "other-buildpack"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
 			})
 		})
@@ -197,12 +202,15 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				Expect(executions).To(HaveLen(9))
 				Expect(executions[6]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
 				Expect(executions[7]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"set-env", "some-app", "OTHER_VARIABLE", "other-value"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
 				Expect(executions[8]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"set-env", "some-app", "SOME_VARIABLE", "some-value"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
 
 				Expect(logs).To(ContainLines(
@@ -243,6 +251,54 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 						"protocol": "all"
 					}
 				]`))
+			})
+		})
+
+		context("when the app has services", func() {
+			it("creates and binds those services", func() {
+				logs := bytes.NewBuffer(nil)
+
+				err := setup.
+					WithServices(map[string]map[string]interface{}{
+						"some-service": map[string]interface{}{
+							"some-key": "some-value",
+						},
+						"other-service": map[string]interface{}{
+							"other-key": "other-value",
+						},
+					}).
+					Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(executions).To(HaveLen(11))
+				Expect(executions[6]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+				Expect(executions[7]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"create-user-provided-service", "some-app-other-service", "-p", `{"other-key":"other-value"}`}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+				Expect(executions[8]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"bind-service", "some-app", "some-app-other-service"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+				Expect(executions[9]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"create-user-provided-service", "some-app-some-service", "-p", `{"some-key":"some-value"}`}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+				Expect(executions[10]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"bind-service", "some-app", "some-app-some-service"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+
+				Expect(logs).To(ContainLines(
+					"Pushing app...",
+					"Creating service...",
+					"Binding service...",
+					"Creating service...",
+					"Binding service...",
+				))
 			})
 		})
 
@@ -499,6 +555,74 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 					Expect(err).To(MatchError(ContainSubstring("App failed to set environment")))
 
 					Expect(logs).To(ContainSubstring("App failed to set environment"))
+				})
+			})
+
+			context("when the services cannot be marshalled to json", func() {
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					err := setup.
+						WithServices(map[string]map[string]interface{}{
+							"some-service": {
+								"some-key": func() {},
+							},
+						}).
+						Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to marshal services json")))
+					Expect(err).To(MatchError(ContainSubstring("unsupported type: func()")))
+				})
+			})
+
+			context("when a service cannot be created", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						if strings.HasPrefix(strings.Join(execution.Args, " "), "create-user-provided-service") {
+							fmt.Fprintln(execution.Stdout, "could not create user-provided service")
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					err := setup.
+						WithServices(map[string]map[string]interface{}{
+							"some-service": {
+								"some-key": "some-value",
+							},
+						}).
+						Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to create-user-provided-service: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring("could not create user-provided service")))
+				})
+			})
+
+			context("when a service cannot be bound", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						if strings.HasPrefix(strings.Join(execution.Args, " "), "bind-service") {
+							fmt.Fprintln(execution.Stdout, "could not bind service")
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					err := setup.
+						WithServices(map[string]map[string]interface{}{
+							"some-service": {
+								"some-key": "some-value",
+							},
+						}).
+						Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to bind-service: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring("could not bind service")))
 				})
 			})
 		})
