@@ -83,7 +83,7 @@ func NewPlatform(platformType PlatformType, token string) (Platform, error) {
 
 		initialize := docker.NewInitialize(buildpacksRegistry)
 		setup := docker.NewSetup(client, lifecycleManager, buildpacksManager, archiver, networkManager, workspace)
-		stage := docker.NewStage(client, workspace)
+		stage := docker.NewStage(client, archiver, workspace)
 		start := docker.NewStart(client, networkManager, workspace)
 		teardown := docker.NewTeardown(client, networkManager, workspace)
 

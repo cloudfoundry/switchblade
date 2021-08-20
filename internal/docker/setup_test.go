@@ -121,12 +121,14 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				Image: "cloudfoundry/cflinuxfs3:latest",
 				Cmd: []string{
 					"/tmp/lifecycle/builder",
-					"--buildpackOrder=some-buildpack,other-buildpack",
-					"--skipDetect=false",
+					"--buildArtifactsCacheDir=/tmp/cache",
 					"--buildDir=/tmp/app",
+					"--buildpackOrder=some-buildpack,other-buildpack",
+					"--buildpacksDir=/tmp/buildpacks",
+					"--outputBuildArtifactsCache=/tmp/output-cache",
 					"--outputDroplet=/tmp/droplet",
 					"--outputMetadata=/tmp/result.json",
-					"--buildpacksDir=/tmp/buildpacks",
+					"--skipDetect=false",
 				},
 				User: "vcap",
 				Env: []string{
@@ -182,12 +184,14 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 				Expect(client.ContainerCreateCall.Receives.Config.Cmd).To(Equal(strslice.StrSlice([]string{
 					"/tmp/lifecycle/builder",
-					"--buildpackOrder=some-buildpack,other-buildpack",
-					"--skipDetect=true",
+					"--buildArtifactsCacheDir=/tmp/cache",
 					"--buildDir=/tmp/app",
+					"--buildpackOrder=some-buildpack,other-buildpack",
+					"--buildpacksDir=/tmp/buildpacks",
+					"--outputBuildArtifactsCache=/tmp/output-cache",
 					"--outputDroplet=/tmp/droplet",
 					"--outputMetadata=/tmp/result.json",
-					"--buildpacksDir=/tmp/buildpacks",
+					"--skipDetect=true",
 				})))
 				Expect(client.ContainerCreateCall.Receives.ContainerName).To(Equal("some-app"))
 			})
@@ -269,6 +273,46 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 				Expect(client.ContainerInspectCall.Receives.ContainerID).To(Equal("some-app"))
 				Expect(client.ContainerRemoveCall.Receives.ContainerID).To(Equal("some-container-id"))
+			})
+		})
+
+		context("when there is a build cache", func() {
+			it.Before(func() {
+				Expect(os.Mkdir(filepath.Join(workspace, "build-cache"), os.ModePerm)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(workspace, "build-cache", "some-app.tar.gz"), []byte("cache-content"), 0600)).To(Succeed())
+			})
+
+			it("copies the build cache into the container", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				containerID, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(containerID).To(Equal("some-container-id"))
+
+				Expect(copyToContainerInvocations).To(HaveLen(4))
+				Expect(copyToContainerInvocations[0]).To(Equal(copyToContainerInvocation{
+					ContainerID: "some-container-id",
+					DstPath:     "/",
+					Content:     "lifecycle-content",
+				}))
+				Expect(copyToContainerInvocations[1]).To(Equal(copyToContainerInvocation{
+					ContainerID: "some-container-id",
+					DstPath:     "/",
+					Content:     "buildpacks-content",
+				}))
+				Expect(copyToContainerInvocations[2]).To(Equal(copyToContainerInvocation{
+					ContainerID: "some-container-id",
+					DstPath:     "/",
+					Content:     "app-content",
+				}))
+				Expect(copyToContainerInvocations[3]).To(Equal(copyToContainerInvocation{
+					ContainerID: "some-container-id",
+					DstPath:     "/",
+					Content:     "cache-content",
+				}))
+
+				Expect(logs).To(ContainLines("Pulling image..."))
 			})
 		})
 

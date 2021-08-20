@@ -174,12 +174,14 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 		Image: CFLinuxFS3DockerImage,
 		Cmd: []string{
 			"/tmp/lifecycle/builder",
-			fmt.Sprintf("--buildpackOrder=%s", order),
-			fmt.Sprintf("--skipDetect=%t", skipDetect),
+			"--buildArtifactsCacheDir=/tmp/cache",
 			"--buildDir=/tmp/app",
+			fmt.Sprintf("--buildpackOrder=%s", order),
+			"--buildpacksDir=/tmp/buildpacks",
+			"--outputBuildArtifactsCache=/tmp/output-cache",
 			"--outputDroplet=/tmp/droplet",
 			"--outputMetadata=/tmp/result.json",
-			"--buildpacksDir=/tmp/buildpacks",
+			fmt.Sprintf("--skipDetect=%t", skipDetect),
 		},
 		User:       "vcap",
 		Env:        env,
@@ -202,7 +204,15 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 		}
 	}
 
-	for _, tarballPath := range []string{lifecycle, buildpacks, source} {
+	tarballs := []string{lifecycle, buildpacks, source}
+
+	buildCachePath := filepath.Join(s.workspace, "build-cache", fmt.Sprintf("%s.tar.gz", name))
+	_, err = os.Stat(buildCachePath)
+	if err == nil {
+		tarballs = append(tarballs, buildCachePath)
+	}
+
+	for _, tarballPath := range tarballs {
 		tarball, err := os.Open(tarballPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to open tarball: %w", err)

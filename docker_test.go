@@ -16,12 +16,6 @@ import (
 	. "github.com/ryanmoran/switchblade/matchers"
 )
 
-type copyToContainerInvocation struct {
-	ContainerID string
-	DstPath     string
-	Content     string
-}
-
 func testDocker(t *testing.T, context spec.G, it spec.S) {
 	var (
 		Expect = NewWithT(t).Expect

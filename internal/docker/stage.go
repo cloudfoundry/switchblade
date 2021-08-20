@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/paketo-buildpacks/packit/vacation"
 )
 
 type StagePhase interface {
@@ -30,12 +31,14 @@ type StageClient interface {
 
 type Stage struct {
 	client    StageClient
+	archiver  Archiver
 	workspace string
 }
 
-func NewStage(client StageClient, workspace string) Stage {
+func NewStage(client StageClient, archiver Archiver, workspace string) Stage {
 	return Stage{
 		client:    client,
+		archiver:  archiver,
 		workspace: workspace,
 	}
 }
@@ -110,6 +113,42 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 			_, err = io.Copy(dropletFile, tr)
 			if err != nil {
 				return "", fmt.Errorf("failed to copy droplet from tarball: %w", err)
+			}
+		}
+	}
+
+	buildCache, _, err := s.client.CopyFromContainer(ctx, containerID, "/tmp/output-cache")
+	if err != nil {
+		return "", fmt.Errorf("failed to copy build cache from container: %w", err)
+	}
+	defer buildCache.Close()
+
+	err = os.MkdirAll(filepath.Join(s.workspace, "build-cache"), os.ModePerm)
+	if err != nil {
+		return "", fmt.Errorf("failed to create build-cache directory: %w", err)
+	}
+
+	tr = tar.NewReader(buildCache)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve build cache from tarball: %w", err)
+		}
+
+		if hdr.Name == "output-cache" {
+			cachePath := filepath.Join(s.workspace, "build-cache", name)
+			err = vacation.NewTarGzipArchive(tr).Decompress(cachePath)
+			if err != nil {
+				return "", fmt.Errorf("failed to decompress build cache: %w", err)
+			}
+			defer os.RemoveAll(cachePath)
+
+			err = s.archiver.WithPrefix("/tmp/cache").Compress(cachePath, filepath.Join(s.workspace, "build-cache", fmt.Sprintf("%s.tar.gz", name)))
+			if err != nil {
+				return "", fmt.Errorf("failed to recompress build cache: %w", err)
 			}
 		}
 	}
