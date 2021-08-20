@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	"context"
+	gocontext "context"
 	"io"
 	"sync"
 
@@ -14,7 +14,7 @@ type StageClient struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx       context.Context
+			Ctx       gocontext.Context
 			Container string
 			Options   types.ContainerLogsOptions
 		}
@@ -22,39 +22,39 @@ type StageClient struct {
 			ReadCloser io.ReadCloser
 			Error      error
 		}
-		Stub func(context.Context, string, types.ContainerLogsOptions) (io.ReadCloser, error)
+		Stub func(gocontext.Context, string, types.ContainerLogsOptions) (io.ReadCloser, error)
 	}
 	ContainerRemoveCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         context.Context
+			Ctx         gocontext.Context
 			ContainerID string
 			Options     types.ContainerRemoveOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, types.ContainerRemoveOptions) error
+		Stub func(gocontext.Context, string, types.ContainerRemoveOptions) error
 	}
 	ContainerStartCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         context.Context
+			Ctx         gocontext.Context
 			ContainerID string
 			Options     types.ContainerStartOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, types.ContainerStartOptions) error
+		Stub func(gocontext.Context, string, types.ContainerStartOptions) error
 	}
 	ContainerWaitCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         context.Context
+			Ctx         gocontext.Context
 			ContainerID string
 			Condition   container.WaitCondition
 		}
@@ -62,13 +62,13 @@ type StageClient struct {
 			ContainerWaitOKBodyChannel <-chan container.ContainerWaitOKBody
 			ErrorChannel               <-chan error
 		}
-		Stub func(context.Context, string, container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error)
+		Stub func(gocontext.Context, string, container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error)
 	}
 	CopyFromContainerCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         context.Context
+			Ctx         gocontext.Context
 			ContainerID string
 			SrcPath     string
 		}
@@ -77,11 +77,11 @@ type StageClient struct {
 			ContainerPathStat types.ContainerPathStat
 			Error             error
 		}
-		Stub func(context.Context, string, string) (io.ReadCloser, types.ContainerPathStat, error)
+		Stub func(gocontext.Context, string, string) (io.ReadCloser, types.ContainerPathStat, error)
 	}
 }
 
-func (f *StageClient) ContainerLogs(param1 context.Context, param2 string, param3 types.ContainerLogsOptions) (io.ReadCloser, error) {
+func (f *StageClient) ContainerLogs(param1 gocontext.Context, param2 string, param3 types.ContainerLogsOptions) (io.ReadCloser, error) {
 	f.ContainerLogsCall.Lock()
 	defer f.ContainerLogsCall.Unlock()
 	f.ContainerLogsCall.CallCount++
@@ -93,7 +93,7 @@ func (f *StageClient) ContainerLogs(param1 context.Context, param2 string, param
 	}
 	return f.ContainerLogsCall.Returns.ReadCloser, f.ContainerLogsCall.Returns.Error
 }
-func (f *StageClient) ContainerRemove(param1 context.Context, param2 string, param3 types.ContainerRemoveOptions) error {
+func (f *StageClient) ContainerRemove(param1 gocontext.Context, param2 string, param3 types.ContainerRemoveOptions) error {
 	f.ContainerRemoveCall.Lock()
 	defer f.ContainerRemoveCall.Unlock()
 	f.ContainerRemoveCall.CallCount++
@@ -105,7 +105,7 @@ func (f *StageClient) ContainerRemove(param1 context.Context, param2 string, par
 	}
 	return f.ContainerRemoveCall.Returns.Error
 }
-func (f *StageClient) ContainerStart(param1 context.Context, param2 string, param3 types.ContainerStartOptions) error {
+func (f *StageClient) ContainerStart(param1 gocontext.Context, param2 string, param3 types.ContainerStartOptions) error {
 	f.ContainerStartCall.Lock()
 	defer f.ContainerStartCall.Unlock()
 	f.ContainerStartCall.CallCount++
@@ -117,7 +117,7 @@ func (f *StageClient) ContainerStart(param1 context.Context, param2 string, para
 	}
 	return f.ContainerStartCall.Returns.Error
 }
-func (f *StageClient) ContainerWait(param1 context.Context, param2 string, param3 container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error) {
+func (f *StageClient) ContainerWait(param1 gocontext.Context, param2 string, param3 container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error) {
 	f.ContainerWaitCall.Lock()
 	defer f.ContainerWaitCall.Unlock()
 	f.ContainerWaitCall.CallCount++
@@ -129,7 +129,7 @@ func (f *StageClient) ContainerWait(param1 context.Context, param2 string, param
 	}
 	return f.ContainerWaitCall.Returns.ContainerWaitOKBodyChannel, f.ContainerWaitCall.Returns.ErrorChannel
 }
-func (f *StageClient) CopyFromContainer(param1 context.Context, param2 string, param3 string) (io.ReadCloser, types.ContainerPathStat, error) {
+func (f *StageClient) CopyFromContainer(param1 gocontext.Context, param2 string, param3 string) (io.ReadCloser, types.ContainerPathStat, error) {
 	f.CopyFromContainerCall.Lock()
 	defer f.CopyFromContainerCall.Unlock()
 	f.CopyFromContainerCall.CallCount++

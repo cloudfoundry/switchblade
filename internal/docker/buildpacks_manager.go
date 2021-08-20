@@ -45,6 +45,11 @@ func NewBuildpacksManager(archiver Archiver, cache BPCache, registry BPRegistry)
 }
 
 func (m BuildpacksManager) Build(workspace, name string) (string, error) {
+	err := os.RemoveAll(filepath.Join(workspace, name))
+	if err != nil {
+		return "", fmt.Errorf("failed to remove existing buildpack directory: %w", err)
+	}
+
 	buildpacks, err := m.registry.List()
 	if err != nil {
 		return "", fmt.Errorf("failed to list buildpacks: %w", err)
@@ -82,6 +87,9 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 
 		if isDir {
 			err = fs.Copy(buildpack.URI, destination)
+			if err != nil {
+				return "", fmt.Errorf("failed to copy buildpack: %w", err)
+			}
 		} else {
 			err = vacation.NewZipArchive(bp).Decompress(destination)
 			if err != nil {

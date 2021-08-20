@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	"context"
+	gocontext "context"
 	"sync"
 
 	"github.com/docker/docker/api/types"
@@ -13,7 +13,7 @@ type NetworkManagementClient struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         context.Context
+			Ctx         gocontext.Context
 			NetworkID   string
 			ContainerID string
 			Config      *network.EndpointSettings
@@ -21,13 +21,13 @@ type NetworkManagementClient struct {
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, string, *network.EndpointSettings) error
+		Stub func(gocontext.Context, string, string, *network.EndpointSettings) error
 	}
 	NetworkCreateCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx     context.Context
+			Ctx     gocontext.Context
 			Name    string
 			Options types.NetworkCreate
 		}
@@ -35,36 +35,36 @@ type NetworkManagementClient struct {
 			NetworkCreateResponse types.NetworkCreateResponse
 			Error                 error
 		}
-		Stub func(context.Context, string, types.NetworkCreate) (types.NetworkCreateResponse, error)
+		Stub func(gocontext.Context, string, types.NetworkCreate) (types.NetworkCreateResponse, error)
 	}
 	NetworkListCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx     context.Context
+			Ctx     gocontext.Context
 			Options types.NetworkListOptions
 		}
 		Returns struct {
 			NetworkResourceSlice []types.NetworkResource
 			Error                error
 		}
-		Stub func(context.Context, types.NetworkListOptions) ([]types.NetworkResource, error)
+		Stub func(gocontext.Context, types.NetworkListOptions) ([]types.NetworkResource, error)
 	}
 	NetworkRemoveCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx       context.Context
+			Ctx       gocontext.Context
 			NetworkID string
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string) error
+		Stub func(gocontext.Context, string) error
 	}
 }
 
-func (f *NetworkManagementClient) NetworkConnect(param1 context.Context, param2 string, param3 string, param4 *network.EndpointSettings) error {
+func (f *NetworkManagementClient) NetworkConnect(param1 gocontext.Context, param2 string, param3 string, param4 *network.EndpointSettings) error {
 	f.NetworkConnectCall.Lock()
 	defer f.NetworkConnectCall.Unlock()
 	f.NetworkConnectCall.CallCount++
@@ -77,7 +77,7 @@ func (f *NetworkManagementClient) NetworkConnect(param1 context.Context, param2 
 	}
 	return f.NetworkConnectCall.Returns.Error
 }
-func (f *NetworkManagementClient) NetworkCreate(param1 context.Context, param2 string, param3 types.NetworkCreate) (types.NetworkCreateResponse, error) {
+func (f *NetworkManagementClient) NetworkCreate(param1 gocontext.Context, param2 string, param3 types.NetworkCreate) (types.NetworkCreateResponse, error) {
 	f.NetworkCreateCall.Lock()
 	defer f.NetworkCreateCall.Unlock()
 	f.NetworkCreateCall.CallCount++
@@ -89,7 +89,7 @@ func (f *NetworkManagementClient) NetworkCreate(param1 context.Context, param2 s
 	}
 	return f.NetworkCreateCall.Returns.NetworkCreateResponse, f.NetworkCreateCall.Returns.Error
 }
-func (f *NetworkManagementClient) NetworkList(param1 context.Context, param2 types.NetworkListOptions) ([]types.NetworkResource, error) {
+func (f *NetworkManagementClient) NetworkList(param1 gocontext.Context, param2 types.NetworkListOptions) ([]types.NetworkResource, error) {
 	f.NetworkListCall.Lock()
 	defer f.NetworkListCall.Unlock()
 	f.NetworkListCall.CallCount++
@@ -100,7 +100,7 @@ func (f *NetworkManagementClient) NetworkList(param1 context.Context, param2 typ
 	}
 	return f.NetworkListCall.Returns.NetworkResourceSlice, f.NetworkListCall.Returns.Error
 }
-func (f *NetworkManagementClient) NetworkRemove(param1 context.Context, param2 string) error {
+func (f *NetworkManagementClient) NetworkRemove(param1 gocontext.Context, param2 string) error {
 	f.NetworkRemoveCall.Lock()
 	defer f.NetworkRemoveCall.Unlock()
 	f.NetworkRemoveCall.CallCount++

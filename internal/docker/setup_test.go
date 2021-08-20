@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
+	"github.com/docker/docker/errdefs"
 	"github.com/ryanmoran/switchblade/internal/docker"
 	"github.com/ryanmoran/switchblade/internal/docker/fakes"
 	"github.com/sclevine/spec"
@@ -80,6 +81,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 				return nil
 			}
+			client.ContainerInspectCall.Returns.Error = errdefs.NotFound(errors.New("no such container"))
 
 			setup = docker.NewSetup(client, lifecycleBuilder, buildpacksBuilder, archiver, networkManager, workspace)
 		})
@@ -111,6 +113,9 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			Expect(networkManager.CreateCall.Receives.Name).To(Equal("switchblade-internal"))
 			Expect(networkManager.CreateCall.Receives.Driver).To(Equal("bridge"))
 			Expect(networkManager.CreateCall.Receives.Internal).To(BeTrue())
+
+			Expect(client.ContainerInspectCall.Receives.ContainerID).To(Equal("some-app"))
+			Expect(client.ContainerRemoveCall.CallCount).To(Equal(0))
 
 			Expect(client.ContainerCreateCall.Receives.Config).To(Equal(&container.Config{
 				Image: "cloudfoundry/cflinuxfs3:latest",
@@ -248,6 +253,25 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("when a conflicting container already exists", func() {
+			it.Before(func() {
+				client.ContainerInspectCall.Returns.ContainerJSON = types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{ID: "some-container-id"}}
+				client.ContainerInspectCall.Returns.Error = nil
+			})
+
+			it("removes the conflicting container", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				containerID, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(containerID).To(Equal("some-container-id"))
+
+				Expect(client.ContainerInspectCall.Receives.ContainerID).To(Equal("some-app"))
+				Expect(client.ContainerRemoveCall.Receives.ContainerID).To(Equal("some-container-id"))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the lifecycle cannot be built", func() {
 				it.Before(func() {
@@ -361,6 +385,36 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError("failed to determine buildpack ordering: could not order buildpacks"))
+				})
+			})
+
+			context("when the container cannot be inspected", func() {
+				it.Before(func() {
+					client.ContainerInspectCall.Returns.Error = errors.New("could not inspect container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to inspect staging container: could not inspect container"))
+				})
+			})
+
+			context("when a conflicting container cannot be removed", func() {
+				it.Before(func() {
+					client.ContainerInspectCall.Returns.ContainerJSON = types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{ID: "some-container-id"}}
+					client.ContainerInspectCall.Returns.Error = nil
+					client.ContainerRemoveCall.Returns.Error = errors.New("could not remove container")
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError("failed to remove conflicting container: could not remove container"))
 				})
 			})
 

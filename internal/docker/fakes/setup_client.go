@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"io"
 	"sync"
 
@@ -16,7 +16,7 @@ type SetupClient struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx              gocontext.Context
+			Ctx              context.Context
 			Config           *container.Config
 			HostConfig       *container.HostConfig
 			NetworkingConfig *network.NetworkingConfig
@@ -27,13 +27,39 @@ type SetupClient struct {
 			ContainerCreateCreatedBody container.ContainerCreateCreatedBody
 			Error                      error
 		}
-		Stub func(gocontext.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *specs.Platform, string) (container.ContainerCreateCreatedBody, error)
+		Stub func(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *specs.Platform, string) (container.ContainerCreateCreatedBody, error)
+	}
+	ContainerInspectCall struct {
+		sync.Mutex
+		CallCount int
+		Receives  struct {
+			Ctx         context.Context
+			ContainerID string
+		}
+		Returns struct {
+			ContainerJSON types.ContainerJSON
+			Error         error
+		}
+		Stub func(context.Context, string) (types.ContainerJSON, error)
+	}
+	ContainerRemoveCall struct {
+		sync.Mutex
+		CallCount int
+		Receives  struct {
+			Ctx         context.Context
+			ContainerID string
+			Options     types.ContainerRemoveOptions
+		}
+		Returns struct {
+			Error error
+		}
+		Stub func(context.Context, string, types.ContainerRemoveOptions) error
 	}
 	CopyToContainerCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			DstPath     string
 			Content     io.Reader
@@ -42,13 +68,13 @@ type SetupClient struct {
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, string, io.Reader, types.CopyToContainerOptions) error
+		Stub func(context.Context, string, string, io.Reader, types.CopyToContainerOptions) error
 	}
 	ImagePullCall struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx     gocontext.Context
+			Ctx     context.Context
 			Ref     string
 			Options types.ImagePullOptions
 		}
@@ -56,11 +82,11 @@ type SetupClient struct {
 			ReadCloser io.ReadCloser
 			Error      error
 		}
-		Stub func(gocontext.Context, string, types.ImagePullOptions) (io.ReadCloser, error)
+		Stub func(context.Context, string, types.ImagePullOptions) (io.ReadCloser, error)
 	}
 }
 
-func (f *SetupClient) ContainerCreate(param1 gocontext.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *specs.Platform, param6 string) (container.ContainerCreateCreatedBody, error) {
+func (f *SetupClient) ContainerCreate(param1 context.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *specs.Platform, param6 string) (container.ContainerCreateCreatedBody, error) {
 	f.ContainerCreateCall.Lock()
 	defer f.ContainerCreateCall.Unlock()
 	f.ContainerCreateCall.CallCount++
@@ -75,7 +101,30 @@ func (f *SetupClient) ContainerCreate(param1 gocontext.Context, param2 *containe
 	}
 	return f.ContainerCreateCall.Returns.ContainerCreateCreatedBody, f.ContainerCreateCall.Returns.Error
 }
-func (f *SetupClient) CopyToContainer(param1 gocontext.Context, param2 string, param3 string, param4 io.Reader, param5 types.CopyToContainerOptions) error {
+func (f *SetupClient) ContainerInspect(param1 context.Context, param2 string) (types.ContainerJSON, error) {
+	f.ContainerInspectCall.Lock()
+	defer f.ContainerInspectCall.Unlock()
+	f.ContainerInspectCall.CallCount++
+	f.ContainerInspectCall.Receives.Ctx = param1
+	f.ContainerInspectCall.Receives.ContainerID = param2
+	if f.ContainerInspectCall.Stub != nil {
+		return f.ContainerInspectCall.Stub(param1, param2)
+	}
+	return f.ContainerInspectCall.Returns.ContainerJSON, f.ContainerInspectCall.Returns.Error
+}
+func (f *SetupClient) ContainerRemove(param1 context.Context, param2 string, param3 types.ContainerRemoveOptions) error {
+	f.ContainerRemoveCall.Lock()
+	defer f.ContainerRemoveCall.Unlock()
+	f.ContainerRemoveCall.CallCount++
+	f.ContainerRemoveCall.Receives.Ctx = param1
+	f.ContainerRemoveCall.Receives.ContainerID = param2
+	f.ContainerRemoveCall.Receives.Options = param3
+	if f.ContainerRemoveCall.Stub != nil {
+		return f.ContainerRemoveCall.Stub(param1, param2, param3)
+	}
+	return f.ContainerRemoveCall.Returns.Error
+}
+func (f *SetupClient) CopyToContainer(param1 context.Context, param2 string, param3 string, param4 io.Reader, param5 types.CopyToContainerOptions) error {
 	f.CopyToContainerCall.Lock()
 	defer f.CopyToContainerCall.Unlock()
 	f.CopyToContainerCall.CallCount++
@@ -89,7 +138,7 @@ func (f *SetupClient) CopyToContainer(param1 gocontext.Context, param2 string, p
 	}
 	return f.CopyToContainerCall.Returns.Error
 }
-func (f *SetupClient) ImagePull(param1 gocontext.Context, param2 string, param3 types.ImagePullOptions) (io.ReadCloser, error) {
+func (f *SetupClient) ImagePull(param1 context.Context, param2 string, param3 types.ImagePullOptions) (io.ReadCloser, error) {
 	f.ImagePullCall.Lock()
 	defer f.ImagePullCall.Unlock()
 	f.ImagePullCall.CallCount++

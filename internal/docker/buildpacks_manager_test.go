@@ -39,6 +39,9 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 		Expect(os.Mkdir(filepath.Join(workspace, "some-buildpack"), os.ModePerm)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(workspace, "some-buildpack", "some-file"), []byte("some-content"), 0600)).To(Succeed())
 
+		Expect(os.Mkdir(filepath.Join(workspace, "some-app"), os.ModePerm)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(workspace, "some-app", "some-file"), []byte("some-content"), 0600)).To(Succeed())
+
 		archiver = &fakes.Archiver{}
 		archiver.WithPrefixCall.Returns.Archiver = archiver
 
@@ -193,6 +196,18 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error", func() {
 					_, err := manager.Build(workspace, "some-app")
 					Expect(err).To(MatchError("failed to fetch buildpack: could not fetch buildpack"))
+				})
+			})
+
+			context("when a directory buildpack cannot be copied", func() {
+				it.Before(func() {
+					Expect(os.Chmod(filepath.Join(workspace, "some-buildpack", "some-file"), 0000)).To(Succeed())
+				})
+
+				it("returns an error", func() {
+					_, err := manager.Build(workspace, "some-app")
+					Expect(err).To(MatchError(ContainSubstring("failed to copy buildpack:")))
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
 				})
 			})
 
