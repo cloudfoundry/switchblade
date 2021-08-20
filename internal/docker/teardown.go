@@ -70,5 +70,10 @@ func (t Teardown) Run(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to delete buildpacks: %w", err)
 	}
 
+	err = os.Remove(filepath.Join(t.workspace, "build-cache", fmt.Sprintf("%s.tar.gz", name)))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to delete build-cache tarball: %w", err)
+	}
+
 	return nil
 }

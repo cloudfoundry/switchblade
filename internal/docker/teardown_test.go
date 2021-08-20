@@ -54,6 +54,11 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 			err = os.WriteFile(filepath.Join(workspace, "buildpacks", "some-app", "some-buildpack"), []byte("some-buildpack-file-contents"), 0600)
 			Expect(err).NotTo(HaveOccurred())
 
+			err = os.Mkdir(filepath.Join(workspace, "build-cache"), os.ModePerm)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(workspace, "build-cache", "some-app.tar.gz"), []byte("some-build-cache-contents"), 0600)
+			Expect(err).NotTo(HaveOccurred())
+
 			teardown = docker.NewTeardown(client, networkManager, workspace)
 		})
 
@@ -80,6 +85,7 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 			Expect(filepath.Join(workspace, "buildpacks", "some-app.tar.gz")).NotTo(BeAnExistingFile())
 			Expect(filepath.Join(workspace, "buildpacks", "some-app", "some-buildpack")).NotTo(BeAnExistingFile())
 			Expect(filepath.Join(workspace, "buildpacks", "some-app")).NotTo(BeADirectory())
+			Expect(filepath.Join(workspace, "build-cache", "some-app.tar.gz")).NotTo(BeAnExistingFile())
 		})
 
 		context("when the container does not exist", func() {
@@ -137,6 +143,19 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 		context("when the buildpacks directory does not exist", func() {
 			it.Before(func() {
 				Expect(os.RemoveAll(filepath.Join(workspace, "buildpacks"))).To(Succeed())
+			})
+
+			it("does not error", func() {
+				ctx := gocontext.Background()
+
+				err := teardown.Run(ctx, "some-app")
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		context("when the build cache tarball does not exist", func() {
+			it.Before(func() {
+				Expect(os.Remove(filepath.Join(workspace, "build-cache", "some-app.tar.gz"))).To(Succeed())
 			})
 
 			it("does not error", func() {
