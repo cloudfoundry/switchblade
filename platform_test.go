@@ -14,7 +14,7 @@ func testPlatform(t *testing.T, context spec.G, it spec.S) {
 
 	context("when given a cf platform type", func() {
 		it("returns a cf platform", func() {
-			platform, err := switchblade.NewPlatform("cf", "some-token")
+			platform, err := switchblade.NewPlatform(switchblade.CloudFoundry, "some-token")
 			Expect(err).NotTo(HaveOccurred())
 
 			_, ok := platform.Deploy.(switchblade.CloudFoundryDeployProcess)
@@ -27,7 +27,7 @@ func testPlatform(t *testing.T, context spec.G, it spec.S) {
 
 	context("when given a docker platform type", func() {
 		it("returns a cf platform", func() {
-			platform, err := switchblade.NewPlatform("docker", "some-token")
+			platform, err := switchblade.NewPlatform(switchblade.Docker, "some-token")
 			Expect(err).NotTo(HaveOccurred())
 
 			_, ok := platform.Deploy.(switchblade.DockerDeployProcess)

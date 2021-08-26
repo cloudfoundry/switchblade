@@ -42,14 +42,12 @@ type InitializeProcess interface {
 	Execute(buildpacks ...Buildpack) error
 }
 
-type PlatformType string
-
 const (
-	CloudFoundry PlatformType = "cf"
-	Docker       PlatformType = "docker"
+	CloudFoundry = "cf"
+	Docker       = "docker"
 )
 
-func NewPlatform(platformType PlatformType, token string) (Platform, error) {
+func NewPlatform(platformType, token string) (Platform, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Platform{}, err
