@@ -42,11 +42,11 @@ type InitializeProcess interface {
 	Execute(buildpacks ...Buildpack) error
 }
 
-type PlatformType int
+type PlatformType string
 
 const (
-	CloudFoundry PlatformType = iota
-	Docker
+	CloudFoundry PlatformType = "cf"
+	Docker       PlatformType = "docker"
 )
 
 func NewPlatform(platformType PlatformType, token string) (Platform, error) {
@@ -90,7 +90,7 @@ func NewPlatform(platformType PlatformType, token string) (Platform, error) {
 		return NewDocker(initialize, setup, stage, start, teardown), nil
 	}
 
-	return Platform{}, nil
+	return Platform{}, fmt.Errorf("unknown platform type: %q", platformType)
 }
 
 func (p Platform) Initialize(buildpacks ...Buildpack) error {
