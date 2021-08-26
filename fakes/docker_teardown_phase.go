@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"sync"
 )
 
@@ -10,17 +10,17 @@ type DockerTeardownPhase struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx  gocontext.Context
+			Ctx  context.Context
 			Name string
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string) error
+		Stub func(context.Context, string) error
 	}
 }
 
-func (f *DockerTeardownPhase) Run(param1 gocontext.Context, param2 string) error {
+func (f *DockerTeardownPhase) Run(param1 context.Context, param2 string) error {
 	f.RunCall.Lock()
 	defer f.RunCall.Unlock()
 	f.RunCall.CallCount++

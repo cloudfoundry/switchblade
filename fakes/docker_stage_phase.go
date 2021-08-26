@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"io"
 	"sync"
 )
@@ -11,7 +11,7 @@ type DockerStagePhase struct {
 		sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			Logs        io.Writer
 			ContainerID string
 			Name        string
@@ -20,11 +20,11 @@ type DockerStagePhase struct {
 			Command string
 			Err     error
 		}
-		Stub func(gocontext.Context, io.Writer, string, string) (string, error)
+		Stub func(context.Context, io.Writer, string, string) (string, error)
 	}
 }
 
-func (f *DockerStagePhase) Run(param1 gocontext.Context, param2 io.Writer, param3 string, param4 string) (string, error) {
+func (f *DockerStagePhase) Run(param1 context.Context, param2 io.Writer, param3 string, param4 string) (string, error) {
 	f.RunCall.Lock()
 	defer f.RunCall.Unlock()
 	f.RunCall.CallCount++

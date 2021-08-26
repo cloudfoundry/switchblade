@@ -39,6 +39,31 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 				command := strings.Join(execution.Args, " ")
 				switch {
+				case strings.HasPrefix(command, "curl /v3/domains"):
+					fmt.Fprintln(execution.Stdout, `{
+						"resources": [
+							{ "name": "other-domain", "internal": true },
+							{ "name": "example.com", "internal": false }
+						]
+					}`)
+				case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+					fmt.Fprintln(execution.Stdout, `[
+						{ "name": "other-router-group", "type": "http" },
+						{ "name": "some-router-group", "type": "tcp" }
+					]`)
+				case strings.HasPrefix(command, "curl /v3/spaces"):
+					fmt.Fprintln(execution.Stdout, `{
+						"resources": [
+							{ "name": "other-app", "guid": "other-space-guid" },
+							{ "name": "some-app", "guid": "some-space-guid" }
+						]
+					}`)
+				case strings.HasPrefix(command, "curl /v3/routes"):
+					fmt.Fprintln(execution.Stdout, `{ "resources": [
+						{ "protocol": "http", "port": null },
+						{ "protocol": "tcp", "port": 5555 }
+					] }`)
+
 				case strings.HasPrefix(command, "create-org"):
 					fmt.Fprintln(execution.Stdout, "Creating org...")
 				case strings.HasPrefix(command, "create-space"):
@@ -59,6 +84,12 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 					fmt.Fprintln(execution.Stdout, "Creating service...")
 				case strings.HasPrefix(command, "bind-service"):
 					fmt.Fprintln(execution.Stdout, "Binding service...")
+				case strings.HasPrefix(command, "create-shared-domain"):
+					fmt.Fprintln(execution.Stdout, "Creating shared domain...")
+				case strings.HasPrefix(command, "create-route"):
+					fmt.Fprintln(execution.Stdout, "Creating route...")
+				case strings.HasPrefix(command, "map-route"):
+					fmt.Fprintln(execution.Stdout, "Mapping route...")
 				}
 
 				return nil
@@ -80,7 +111,16 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			err = os.WriteFile(filepath.Join(workspace, "some-home", ".cf", "config.json"), []byte(`{"Target": "https://example.com"}`), 0600)
 			Expect(err).NotTo(HaveOccurred())
 
-			setup = cloudfoundry.NewSetup(executable, home)
+			setup = cloudfoundry.NewSetup(executable, home).WithCustomHostLookup(func(fqdn string) ([]string, error) {
+				switch fqdn {
+				case "localhost":
+					return []string{"127.0.0.1", "::1"}, nil
+				case "tcp.example.com":
+					return []string{"192.168.0.1", "::1"}, nil
+				default:
+					return nil, errors.New("no such host")
+				}
+			})
 		})
 
 		it.After(func() {
@@ -91,47 +131,86 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 		it("sets up the app", func() {
 			logs := bytes.NewBuffer(nil)
 
-			err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+			url, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 			Expect(err).NotTo(HaveOccurred())
+			Expect(url).To(Equal("http://tcp.example.com:5555"))
 
-			Expect(executions).To(HaveLen(7))
+			Expect(executions).To(HaveLen(15))
 			Expect(executions[0]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"create-org", "some-app"}),
+				"Args": Equal([]string{"curl", "/v3/domains"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[1]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"create-space", "some-app", "-o", "some-app"}),
+				"Args": Equal([]string{"curl", "/routing/v1/router_groups"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[2]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"target", "-o", "some-app", "-s", "some-app"}),
+				"Args": Equal([]string{"create-shared-domain", "tcp.example.com", "--router-group", "some-router-group"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[3]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"create-security-group", "some-app", filepath.Join(workspace, "some-home", "security-group.json")}),
+				"Args": Equal([]string{"create-org", "some-app"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[4]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"bind-security-group", "some-app", "some-app", "some-app", "--lifecycle", "staging"}),
+				"Args": Equal([]string{"create-space", "some-app", "-o", "some-app"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[5]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"update-security-group", "public_networks", filepath.Join(workspace, "some-home", "empty-security-group.json")}),
+				"Args": Equal([]string{"target", "-o", "some-app", "-s", "some-app"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[6]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"create-security-group", "some-app", filepath.Join(workspace, "some-home", "security-group.json")}),
+				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+			}))
+			Expect(executions[7]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"bind-security-group", "some-app", "some-app", "some-app", "--lifecycle", "staging"}),
+				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+			}))
+			Expect(executions[8]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"bind-security-group", "some-app", "some-app", "some-app", "--lifecycle", "running"}),
+				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+			}))
+			Expect(executions[9]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"update-security-group", "public_networks", filepath.Join(workspace, "some-home", "empty-security-group.json")}),
+				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+			}))
+			Expect(executions[10]).To(MatchFields(IgnoreExtras, Fields{
 				"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start"}),
+				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+			}))
+			Expect(executions[11]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"create-route", "some-app", "tcp.example.com", "--random-port"}),
+				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+			}))
+			Expect(executions[12]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"curl", "/v3/spaces"}),
+				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+			}))
+			Expect(executions[13]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"curl", "/v3/routes?space_guids=some-space-guid"}),
+				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+			}))
+			Expect(executions[14]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"map-route", "some-app", "tcp.example.com", "--port", "5555"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 
 			Expect(logs).To(ContainLines(
+				"Creating shared domain...",
 				"Creating org...",
 				"Creating space...",
 				"Targeting org/space...",
 				"Creating security group...",
 				"Binding security group...",
+				"Binding security group...",
 				"Updating security group...",
 				"Pushing app...",
+				"Creating route...",
+			))
+			Expect(logs).To(ContainLines(
+				"Mapping route...",
 			))
 
 			content, err := os.ReadFile(filepath.Join(workspace, "some-home", ".cf", "config.json"))
@@ -164,6 +243,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				{
 					"destination": "127.0.0.1",
 					"protocol": "all"
+				},
+				{
+					"destination": "192.168.0.1",
+					"protocol": "all"
 				}
 			]`))
 
@@ -174,13 +257,13 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 		context("when the app has buildpacks", func() {
 			it("pushes the app with those buildpacks", func() {
-				err := setup.
+				_, err := setup.
 					WithBuildpacks("some-buildpack", "other-buildpack").
 					Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(executions).To(HaveLen(7))
-				Expect(executions[6]).To(MatchFields(IgnoreExtras, Fields{
+				Expect(executions).To(HaveLen(15))
+				Expect(executions[10]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start", "-b", "some-buildpack", "-b", "other-buildpack"}),
 					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
@@ -191,7 +274,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			it("pushes the app with those environment variables", func() {
 				logs := bytes.NewBuffer(nil)
 
-				err := setup.
+				_, err := setup.
 					WithEnv(map[string]string{
 						"SOME_VARIABLE":  "some-value",
 						"OTHER_VARIABLE": "other-value",
@@ -199,22 +282,18 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 					Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(executions).To(HaveLen(9))
-				Expect(executions[6]).To(MatchFields(IgnoreExtras, Fields{
-					"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start"}),
-					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
-				}))
-				Expect(executions[7]).To(MatchFields(IgnoreExtras, Fields{
+				Expect(executions).To(HaveLen(17))
+				Expect(executions[15]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"set-env", "some-app", "OTHER_VARIABLE", "other-value"}),
 					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
-				Expect(executions[8]).To(MatchFields(IgnoreExtras, Fields{
+				Expect(executions[16]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"set-env", "some-app", "SOME_VARIABLE", "some-value"}),
 					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
 
 				Expect(logs).To(ContainLines(
-					"Pushing app...",
+					"Mapping route...",
 					"Setting environment variable...",
 					"Setting environment variable...",
 				))
@@ -223,7 +302,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 		context("when the app is offline", func() {
 			it("uses a private network security group", func() {
-				err := setup.
+				_, err := setup.
 					WithoutInternetAccess().
 					Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 				Expect(err).NotTo(HaveOccurred())
@@ -249,6 +328,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 					{
 						"destination": "127.0.0.1",
 						"protocol": "all"
+					},
+					{
+						"destination": "192.168.0.1",
+						"protocol": "all"
 					}
 				]`))
 			})
@@ -258,7 +341,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			it("creates and binds those services", func() {
 				logs := bytes.NewBuffer(nil)
 
-				err := setup.
+				_, err := setup.
 					WithServices(map[string]map[string]interface{}{
 						"some-service": map[string]interface{}{
 							"some-key": "some-value",
@@ -270,35 +353,84 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 					Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(executions).To(HaveLen(11))
-				Expect(executions[6]).To(MatchFields(IgnoreExtras, Fields{
-					"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start"}),
-					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
-				}))
-				Expect(executions[7]).To(MatchFields(IgnoreExtras, Fields{
+				Expect(executions).To(HaveLen(19))
+				Expect(executions[15]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"create-user-provided-service", "some-app-other-service", "-p", `{"other-key":"other-value"}`}),
 					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
-				Expect(executions[8]).To(MatchFields(IgnoreExtras, Fields{
+				Expect(executions[16]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"bind-service", "some-app", "some-app-other-service"}),
 					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
-				Expect(executions[9]).To(MatchFields(IgnoreExtras, Fields{
+				Expect(executions[17]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"create-user-provided-service", "some-app-some-service", "-p", `{"some-key":"some-value"}`}),
 					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
-				Expect(executions[10]).To(MatchFields(IgnoreExtras, Fields{
+				Expect(executions[18]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"bind-service", "some-app", "some-app-some-service"}),
 					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
 
 				Expect(logs).To(ContainLines(
-					"Pushing app...",
+					"Mapping route...",
 					"Creating service...",
 					"Binding service...",
 					"Creating service...",
 					"Binding service...",
 				))
+			})
+		})
+
+		context("when the tcp domain already exists", func() {
+			it.Before(func() {
+				executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+					executions = append(executions, execution)
+
+					command := strings.Join(execution.Args, " ")
+					switch {
+					case strings.HasPrefix(command, "curl /v3/domains"):
+						fmt.Fprintln(execution.Stdout, `{
+							"resources": [
+								{ "name": "other-domain", "internal": true },
+								{ "name": "example.com", "internal": false },
+								{ "name": "tcp.example.com", "internal": false }
+							]
+						}`)
+					case strings.HasPrefix(command, "curl /v3/spaces"):
+						fmt.Fprintln(execution.Stdout, `{
+							"resources": [
+								{ "name": "other-app", "guid": "other-space-guid" },
+								{ "name": "some-app", "guid": "some-space-guid" }
+							]
+						}`)
+					case strings.HasPrefix(command, "curl /v3/routes"):
+						fmt.Fprintln(execution.Stdout, `{ "resources": [
+							{ "protocol": "http", "port": null },
+							{ "protocol": "tcp", "port": 5555 }
+						] }`)
+					}
+
+					return nil
+				}
+			})
+
+			it("skips creating that domain again", func() {
+				logs := bytes.NewBuffer(nil)
+
+				_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(executions).To(HaveLen(13))
+				Expect(executions[0]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"curl", "/v3/domains"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+				Expect(executions[1]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"create-org", "some-app"}),
+					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+
+				Expect(logs).NotTo(ContainLines("Creating shared domain..."))
 			})
 		})
 
@@ -313,7 +445,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to make temporary $CF_HOME:")))
 					Expect(err).To(MatchError(ContainSubstring("permission denied")))
 				})
@@ -329,16 +461,172 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to copy $CF_HOME:")))
 					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
+			})
+
+			context("when the domains cannot be listed", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{"error": "could not list domains"}`)
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to curl /v3/domains: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring(`{"error": "could not list domains"}`)))
+
+					Expect(logs).To(ContainSubstring(`{"error": "could not list domains"}`))
+				})
+			})
+
+			context("when the domains cannot be unmarshalled", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, "%%%")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to parse domains")))
+					Expect(err).To(MatchError(ContainSubstring("invalid character '%'")))
+				})
+			})
+
+			context("when the router groups cannot be listed", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `{"error": "could not list router groups"}`)
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to curl /routing/v1/router_groups: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring(`{"error": "could not list router groups"}`)))
+
+					Expect(logs).To(ContainSubstring(`{"error": "could not list router groups"}`))
+				})
+			})
+
+			context("when the router groups cannot be unmarshalled", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, "%%%")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to parse router groups")))
+					Expect(err).To(MatchError(ContainSubstring("invalid character '%'")))
+				})
+			})
+
+			context("when the shared domain cannot be created", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "create-shared-domain"):
+							fmt.Fprintln(execution.Stdout, "Shared domain failed to create")
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to create-shared-domain: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring("Shared domain failed to create")))
+
+					Expect(logs).To(ContainSubstring("Shared domain failed to create"))
 				})
 			})
 
 			context("when the org cannot be created", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "create-org") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "create-org"):
 							fmt.Fprintln(execution.Stdout, "Org failed to create")
 							return errors.New("exit status 1")
 						}
@@ -349,7 +637,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to create-org: exit status 1")))
 					Expect(err).To(MatchError(ContainSubstring("Org failed to create")))
 
@@ -360,7 +648,22 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when the space cannot be created", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "create-space") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "create-space"):
 							fmt.Fprintln(execution.Stdout, "Space failed to create")
 							return errors.New("exit status 1")
 						}
@@ -371,7 +674,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to create-space: exit status 1")))
 					Expect(err).To(MatchError(ContainSubstring("Space failed to create")))
 
@@ -382,7 +685,22 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when the org/space cannot be targeted", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "target") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "target"):
 							fmt.Fprintln(execution.Stdout, "Target failed")
 							return errors.New("exit status 1")
 						}
@@ -393,7 +711,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to target: exit status 1")))
 					Expect(err).To(MatchError(ContainSubstring("Target failed")))
 
@@ -407,7 +725,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("invalid character '%'")))
 				})
 			})
@@ -418,7 +736,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring(`invalid URL escape "%%%"`)))
 				})
 			})
@@ -429,7 +747,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("no such host")))
 				})
 			})
@@ -441,7 +759,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				})
 
 				it("returns an error", func() {
-					err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("permission denied")))
 				})
 			})
@@ -449,7 +767,22 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when the security-group cannot be created", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "create-security-group") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "create-security-group"):
 							fmt.Fprintln(execution.Stdout, "Security group failed to create")
 							return errors.New("exit status 1")
 						}
@@ -460,7 +793,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to create-security-group: exit status 1")))
 					Expect(err).To(MatchError(ContainSubstring("Security group failed to create")))
 
@@ -471,7 +804,22 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when the security-group cannot be bound", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "bind-security-group") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "bind-security-group"):
 							fmt.Fprintln(execution.Stdout, "Security group failed to bind")
 							return errors.New("exit status 1")
 						}
@@ -482,7 +830,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to bind-security-group: exit status 1")))
 					Expect(err).To(MatchError(ContainSubstring("Security group failed to bind")))
 
@@ -493,7 +841,22 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when the security-group cannot be updated", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "update-security-group") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "update-security-group"):
 							fmt.Fprintln(execution.Stdout, "Security group failed to update")
 							return errors.New("exit status 1")
 						}
@@ -504,7 +867,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to update-security-group: exit status 1")))
 					Expect(err).To(MatchError(ContainSubstring("Security group failed to update")))
 
@@ -515,7 +878,22 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when the app cannot be pushed", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "push") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "push"):
 							fmt.Fprintln(execution.Stdout, "App failed to create")
 							return errors.New("exit status 1")
 						}
@@ -526,7 +904,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to push: exit status 1")))
 					Expect(err).To(MatchError(ContainSubstring("App failed to create")))
 
@@ -534,10 +912,281 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				})
 			})
 
+			context("when the route cannot be created", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "create-route"):
+							fmt.Fprintln(execution.Stdout, "Route failed to create")
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to create-route: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring("Route failed to create")))
+
+					Expect(logs).To(ContainSubstring("Route failed to create"))
+				})
+			})
+
+			context("when the spaces cannot be listed", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "curl /v3/spaces"):
+							fmt.Fprintln(execution.Stdout, `{"error": "could not list spaces"}`)
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to curl /v3/spaces: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring(`{"error": "could not list spaces"}`)))
+
+					Expect(logs).To(ContainSubstring(`{"error": "could not list spaces"}`))
+				})
+			})
+
+			context("when the spaces cannot be unmarshalled", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+
+						case strings.HasPrefix(command, "curl /v3/spaces"):
+							fmt.Fprintln(execution.Stdout, "%%%")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to parse spaces")))
+					Expect(err).To(MatchError(ContainSubstring("invalid character '%'")))
+				})
+			})
+
+			context("when the routes cannot be listed", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+						case strings.HasPrefix(command, "curl /v3/spaces"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-app", "guid": "other-space-guid" },
+									{ "name": "some-app", "guid": "some-space-guid" }
+								]
+							}`)
+
+						case strings.HasPrefix(command, "curl /v3/routes"):
+							fmt.Fprintln(execution.Stdout, `{"error": "could not list routes"}`)
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to curl /v3/routes: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring(`{"error": "could not list routes"}`)))
+
+					Expect(logs).To(ContainSubstring(`{"error": "could not list routes"}`))
+				})
+			})
+
+			context("when the routes cannot be unmarshalled", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+						case strings.HasPrefix(command, "curl /v3/spaces"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-app", "guid": "other-space-guid" },
+									{ "name": "some-app", "guid": "some-space-guid" }
+								]
+							}`)
+
+						case strings.HasPrefix(command, "curl /v3/routes"):
+							fmt.Fprintln(execution.Stdout, "%%%")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to parse routes")))
+					Expect(err).To(MatchError(ContainSubstring("invalid character '%'")))
+				})
+			})
+
+			context("when the route cannot be mapped", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+						case strings.HasPrefix(command, "curl /v3/spaces"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-app", "guid": "other-space-guid" },
+									{ "name": "some-app", "guid": "some-space-guid" }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /v3/routes"):
+							fmt.Fprintln(execution.Stdout, `{ "resources": [
+								{ "protocol": "http", "port": null },
+								{ "protocol": "tcp", "port": 5555 }
+							] }`)
+
+						case strings.HasPrefix(command, "map-route"):
+							fmt.Fprintln(execution.Stdout, "Route failed to map")
+							return errors.New("exit status 1")
+						}
+						return nil
+					}
+				})
+
+				it("returns an error and the build logs", func() {
+					logs := bytes.NewBuffer(nil)
+
+					_, err := setup.
+						WithEnv(map[string]string{"SOME_VARIABLE": "some-value"}).
+						Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+					Expect(err).To(MatchError(ContainSubstring("failed to map-route: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring("Route failed to map")))
+
+					Expect(logs).To(ContainSubstring("Route failed to map"))
+				})
+			})
+
 			context("when the environment cannot be set", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "set-env") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+						case strings.HasPrefix(command, "curl /v3/spaces"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-app", "guid": "other-space-guid" },
+									{ "name": "some-app", "guid": "some-space-guid" }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /v3/routes"):
+							fmt.Fprintln(execution.Stdout, `{ "resources": [
+								{ "protocol": "http", "port": null },
+								{ "protocol": "tcp", "port": 5555 }
+							] }`)
+
+						case strings.HasPrefix(command, "set-env"):
 							fmt.Fprintln(execution.Stdout, "App failed to set environment")
 							return errors.New("exit status 1")
 						}
@@ -548,7 +1197,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.
+					_, err := setup.
 						WithEnv(map[string]string{"SOME_VARIABLE": "some-value"}).
 						Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError(ContainSubstring("failed to set-env: exit status 1")))
@@ -562,7 +1211,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.
+					_, err := setup.
 						WithServices(map[string]map[string]interface{}{
 							"some-service": {
 								"some-key": func() {},
@@ -577,7 +1226,34 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when a service cannot be created", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "create-user-provided-service") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+						case strings.HasPrefix(command, "curl /v3/spaces"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-app", "guid": "other-space-guid" },
+									{ "name": "some-app", "guid": "some-space-guid" }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /v3/routes"):
+							fmt.Fprintln(execution.Stdout, `{ "resources": [
+								{ "protocol": "http", "port": null },
+								{ "protocol": "tcp", "port": 5555 }
+							] }`)
+
+						case strings.HasPrefix(command, "create-user-provided-service"):
 							fmt.Fprintln(execution.Stdout, "could not create user-provided service")
 							return errors.New("exit status 1")
 						}
@@ -588,7 +1264,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.
+					_, err := setup.
 						WithServices(map[string]map[string]interface{}{
 							"some-service": {
 								"some-key": "some-value",
@@ -603,7 +1279,34 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			context("when a service cannot be bound", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "bind-service") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "curl /v3/domains"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-domain", "internal": true },
+									{ "name": "example.com", "internal": false }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /routing/v1/router_groups"):
+							fmt.Fprintln(execution.Stdout, `[
+								{ "name": "other-router-group", "type": "http" },
+								{ "name": "some-router-group", "type": "tcp" }
+							]`)
+						case strings.HasPrefix(command, "curl /v3/spaces"):
+							fmt.Fprintln(execution.Stdout, `{
+								"resources": [
+									{ "name": "other-app", "guid": "other-space-guid" },
+									{ "name": "some-app", "guid": "some-space-guid" }
+								]
+							}`)
+						case strings.HasPrefix(command, "curl /v3/routes"):
+							fmt.Fprintln(execution.Stdout, `{ "resources": [
+								{ "protocol": "http", "port": null },
+								{ "protocol": "tcp", "port": 5555 }
+							] }`)
+
+						case strings.HasPrefix(command, "bind-service"):
 							fmt.Fprintln(execution.Stdout, "could not bind service")
 							return errors.New("exit status 1")
 						}
@@ -614,7 +1317,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error and the build logs", func() {
 					logs := bytes.NewBuffer(nil)
 
-					err := setup.
+					_, err := setup.
 						WithServices(map[string]map[string]interface{}{
 							"some-service": {
 								"some-key": "some-value",

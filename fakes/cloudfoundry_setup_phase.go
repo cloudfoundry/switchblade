@@ -18,9 +18,10 @@ type CloudFoundrySetupPhase struct {
 			Source string
 		}
 		Returns struct {
-			Error error
+			Url string
+			Err error
 		}
-		Stub func(io.Writer, string, string, string) error
+		Stub func(io.Writer, string, string, string) (string, error)
 	}
 	WithBuildpacksCall struct {
 		sync.Mutex
@@ -67,7 +68,7 @@ type CloudFoundrySetupPhase struct {
 	}
 }
 
-func (f *CloudFoundrySetupPhase) Run(param1 io.Writer, param2 string, param3 string, param4 string) error {
+func (f *CloudFoundrySetupPhase) Run(param1 io.Writer, param2 string, param3 string, param4 string) (string, error) {
 	f.RunCall.Lock()
 	defer f.RunCall.Unlock()
 	f.RunCall.CallCount++
@@ -78,7 +79,7 @@ func (f *CloudFoundrySetupPhase) Run(param1 io.Writer, param2 string, param3 str
 	if f.RunCall.Stub != nil {
 		return f.RunCall.Stub(param1, param2, param3, param4)
 	}
-	return f.RunCall.Returns.Error
+	return f.RunCall.Returns.Url, f.RunCall.Returns.Err
 }
 func (f *CloudFoundrySetupPhase) WithBuildpacks(param1 ...string) cloudfoundry.SetupPhase {
 	f.WithBuildpacksCall.Lock()

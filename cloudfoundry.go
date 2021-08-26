@@ -87,20 +87,20 @@ func (p CloudFoundryDeployProcess) Execute(name, source string) (Deployment, fmt
 	logs := bytes.NewBuffer(nil)
 	home := filepath.Join(p.workspace, name)
 
-	err := p.setup.Run(logs, home, name, source)
+	internalURL, err := p.setup.Run(logs, home, name, source)
 	if err != nil {
 		return Deployment{}, logs, err
 	}
 
-	url, err := p.stage.Run(logs, home, name)
+	externalURL, err := p.stage.Run(logs, home, name)
 	if err != nil {
 		return Deployment{}, logs, err
 	}
 
 	return Deployment{
 		Name:        name,
-		ExternalURL: url,
-		InternalURL: url,
+		ExternalURL: externalURL,
+		InternalURL: internalURL,
 	}, logs, nil
 }
 

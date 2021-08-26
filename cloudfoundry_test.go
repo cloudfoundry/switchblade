@@ -101,14 +101,14 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 			home, err = os.MkdirTemp("", "home")
 			Expect(err).NotTo(HaveOccurred())
 
-			setup.RunCall.Stub = func(logs io.Writer, home, name, source string) error {
+			setup.RunCall.Stub = func(logs io.Writer, home, name, source string) (string, error) {
 				fmt.Fprintln(logs, "Setting up...")
-				return nil
+				return "some-internal-url", nil
 			}
 
 			stage.RunCall.Stub = func(logs io.Writer, home, name string) (string, error) {
 				fmt.Fprintln(logs, "Staging...")
-				return "some-url", nil
+				return "some-external-url", nil
 			}
 		})
 
@@ -121,8 +121,8 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deployment).To(Equal(switchblade.Deployment{
 				Name:        "some-app",
-				ExternalURL: "some-url",
-				InternalURL: "some-url",
+				ExternalURL: "some-external-url",
+				InternalURL: "some-internal-url",
 			}))
 			Expect(logs).To(ContainLines(
 				"Setting up...",
@@ -178,9 +178,9 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 		context("failure cases", func() {
 			context("when the setup phase errors", func() {
 				it.Before(func() {
-					setup.RunCall.Stub = func(logs io.Writer, home, name, source string) error {
+					setup.RunCall.Stub = func(logs io.Writer, home, name, source string) (string, error) {
 						fmt.Fprintln(logs, "Setting up... errored")
-						return errors.New("failed to setup")
+						return "", errors.New("failed to setup")
 					}
 				})
 
