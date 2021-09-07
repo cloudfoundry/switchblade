@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ryanmoran/switchblade"
+	"github.com/cloudfoundry/switchblade"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"

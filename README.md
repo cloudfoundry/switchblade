@@ -26,10 +26,10 @@ import (
   "log"
   "testing"
 
-  "github.com/ryanmoran/switchblade"
+  "github.com/cloudfoundry/switchblade"
 
   . "github.com/onsi/gomega"
-  . "github.com/ryanmoran/switchblade/matchers"
+  . "github.com/cloudfoundry/switchblade/matchers"
 )
 
 func TestCloudFoundry(t *testing.T) {
@@ -72,10 +72,10 @@ import (
   "log"
   "testing"
 
-  "github.com/ryanmoran/switchblade"
+  "github.com/cloudfoundry/switchblade"
 
   . "github.com/onsi/gomega"
-  . "github.com/ryanmoran/switchblade/matchers"
+  . "github.com/cloudfoundry/switchblade/matchers"
 )
 
 func TestDocker(t *testing.T) {

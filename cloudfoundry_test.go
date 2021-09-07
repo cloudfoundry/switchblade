@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ryanmoran/switchblade"
-	"github.com/ryanmoran/switchblade/fakes"
-	"github.com/ryanmoran/switchblade/internal/cloudfoundry"
+	"github.com/cloudfoundry/switchblade"
+	"github.com/cloudfoundry/switchblade/fakes"
+	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
 	"github.com/sclevine/spec"
 
+	. "github.com/cloudfoundry/switchblade/matchers"
 	. "github.com/onsi/gomega"
-	. "github.com/ryanmoran/switchblade/matchers"
 )
 
 func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {

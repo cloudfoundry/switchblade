@@ -3,7 +3,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/ryanmoran/switchblade/internal/docker"
+	"github.com/cloudfoundry/switchblade/internal/docker"
 )
 
 type BuildpacksBuilder struct {

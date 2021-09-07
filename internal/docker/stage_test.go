@@ -12,16 +12,16 @@ import (
 	"testing"
 	"testing/iotest"
 
+	"github.com/cloudfoundry/switchblade/internal/docker"
+	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/paketo-buildpacks/packit/vacation"
-	"github.com/ryanmoran/switchblade/internal/docker"
-	"github.com/ryanmoran/switchblade/internal/docker/fakes"
 	"github.com/sclevine/spec"
 
+	. "github.com/cloudfoundry/switchblade/matchers"
 	. "github.com/onsi/gomega"
-	. "github.com/ryanmoran/switchblade/matchers"
 )
 
 func testStage(t *testing.T, context spec.G, it spec.S) {

@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"reflect"
 
+	"github.com/cloudfoundry/switchblade"
 	"github.com/onsi/gomega/types"
-	"github.com/ryanmoran/switchblade"
 )
 
 type ServeMatcher struct {

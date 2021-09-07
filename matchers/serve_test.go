@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ryanmoran/switchblade"
-	"github.com/ryanmoran/switchblade/matchers"
+	"github.com/cloudfoundry/switchblade"
+	"github.com/cloudfoundry/switchblade/matchers"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"

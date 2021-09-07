@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ryanmoran/switchblade/internal/docker"
+	"github.com/cloudfoundry/switchblade/internal/docker"
 )
 
 //go:generate faux --interface DockerInitializePhase --output fakes/docker_initialize_phase.go

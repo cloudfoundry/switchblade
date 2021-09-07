@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
+	"github.com/cloudfoundry/switchblade/internal/cloudfoundry/fakes"
 	"github.com/paketo-buildpacks/packit/pexec"
-	"github.com/ryanmoran/switchblade/internal/cloudfoundry"
-	"github.com/ryanmoran/switchblade/internal/cloudfoundry/fakes"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"

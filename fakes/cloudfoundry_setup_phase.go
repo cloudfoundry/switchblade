@@ -4,7 +4,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/ryanmoran/switchblade/internal/cloudfoundry"
+	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
 )
 
 type CloudFoundrySetupPhase struct {

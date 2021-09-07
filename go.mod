@@ -1,4 +1,4 @@
-module github.com/ryanmoran/switchblade
+module github.com/cloudfoundry/switchblade
 
 go 1.16
 

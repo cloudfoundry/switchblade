@@ -7,13 +7,13 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ryanmoran/switchblade"
-	"github.com/ryanmoran/switchblade/fakes"
-	"github.com/ryanmoran/switchblade/internal/docker"
+	"github.com/cloudfoundry/switchblade"
+	"github.com/cloudfoundry/switchblade/fakes"
+	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/sclevine/spec"
 
+	. "github.com/cloudfoundry/switchblade/matchers"
 	. "github.com/onsi/gomega"
-	. "github.com/ryanmoran/switchblade/matchers"
 )
 
 func testDocker(t *testing.T, context spec.G, it spec.S) {

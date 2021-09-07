@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/ryanmoran/switchblade/internal/docker"
+	"github.com/cloudfoundry/switchblade/internal/docker"
 )
 
 type DockerStartPhase struct {

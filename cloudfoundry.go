@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/ryanmoran/switchblade/internal/cloudfoundry"
+	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
 )
 
 //go:generate faux --interface CloudFoundryInitializePhase --output fakes/cloudfoundry_initialize_phase.go

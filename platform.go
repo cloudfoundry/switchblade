@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
+	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/docker/docker/client"
 	"github.com/paketo-buildpacks/packit/pexec"
-	"github.com/ryanmoran/switchblade/internal/cloudfoundry"
-	"github.com/ryanmoran/switchblade/internal/docker"
 )
 
 type Buildpack struct {

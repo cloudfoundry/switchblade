@@ -3,7 +3,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/ryanmoran/switchblade/internal/cloudfoundry"
+	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
 )
 
 type CloudFoundryInitializePhase struct {

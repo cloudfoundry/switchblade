@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ryanmoran/switchblade/internal/docker"
-	"github.com/ryanmoran/switchblade/internal/docker/fakes"
+	"github.com/cloudfoundry/switchblade/internal/docker"
+	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"

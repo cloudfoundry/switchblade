@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ryanmoran/switchblade/internal/docker"
+	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"

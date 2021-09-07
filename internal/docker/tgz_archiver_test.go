@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/paketo-buildpacks/packit/vacation"
-	"github.com/ryanmoran/switchblade/internal/docker"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"
