@@ -222,7 +222,7 @@ func testLifecycleManager(t *testing.T, context spec.G, it spec.S) {
 				it("returns an error", func() {
 					_, err := manager.Build("http://localhost:0", workspace)
 					Expect(err).To(MatchError(ContainSubstring("failed to complete request:")))
-					Expect(err).To(MatchError(ContainSubstring("can't assign requested address")))
+					Expect(err).To(MatchError(ContainSubstring("dial tcp")))
 				})
 			})
 
