@@ -1,29 +1,29 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"sync"
 )
 
 type SetupNetworkManager struct {
 	ConnectCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			Name        string
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, string) error
+		Stub func(context.Context, string, string) error
 	}
 	CreateCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx      gocontext.Context
+			Ctx      context.Context
 			Name     string
 			Driver   string
 			Internal bool
@@ -31,13 +31,13 @@ type SetupNetworkManager struct {
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, string, bool) error
+		Stub func(context.Context, string, string, bool) error
 	}
 }
 
-func (f *SetupNetworkManager) Connect(param1 gocontext.Context, param2 string, param3 string) error {
-	f.ConnectCall.Lock()
-	defer f.ConnectCall.Unlock()
+func (f *SetupNetworkManager) Connect(param1 context.Context, param2 string, param3 string) error {
+	f.ConnectCall.mutex.Lock()
+	defer f.ConnectCall.mutex.Unlock()
 	f.ConnectCall.CallCount++
 	f.ConnectCall.Receives.Ctx = param1
 	f.ConnectCall.Receives.ContainerID = param2
@@ -47,9 +47,9 @@ func (f *SetupNetworkManager) Connect(param1 gocontext.Context, param2 string, p
 	}
 	return f.ConnectCall.Returns.Error
 }
-func (f *SetupNetworkManager) Create(param1 gocontext.Context, param2 string, param3 string, param4 bool) error {
-	f.CreateCall.Lock()
-	defer f.CreateCall.Unlock()
+func (f *SetupNetworkManager) Create(param1 context.Context, param2 string, param3 string, param4 bool) error {
+	f.CreateCall.mutex.Lock()
+	defer f.CreateCall.mutex.Unlock()
 	f.CreateCall.CallCount++
 	f.CreateCall.Receives.Ctx = param1
 	f.CreateCall.Receives.Name = param2

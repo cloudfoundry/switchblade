@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"io"
 	"sync"
 
@@ -10,10 +10,10 @@ import (
 
 type DockerSetupPhase struct {
 	RunCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx  gocontext.Context
+			Ctx  context.Context
 			Logs io.Writer
 			Name string
 			Path string
@@ -22,10 +22,10 @@ type DockerSetupPhase struct {
 			ContainerID string
 			Err         error
 		}
-		Stub func(gocontext.Context, io.Writer, string, string) (string, error)
+		Stub func(context.Context, io.Writer, string, string) (string, error)
 	}
 	WithBuildpacksCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Buildpacks []string
@@ -36,7 +36,7 @@ type DockerSetupPhase struct {
 		Stub func(...string) docker.SetupPhase
 	}
 	WithEnvCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Env map[string]string
@@ -47,7 +47,7 @@ type DockerSetupPhase struct {
 		Stub func(map[string]string) docker.SetupPhase
 	}
 	WithServicesCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Services map[string]map[string]interface {
@@ -60,7 +60,7 @@ type DockerSetupPhase struct {
 		}) docker.SetupPhase
 	}
 	WithoutInternetAccessCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Returns   struct {
 			SetupPhase docker.SetupPhase
@@ -69,9 +69,9 @@ type DockerSetupPhase struct {
 	}
 }
 
-func (f *DockerSetupPhase) Run(param1 gocontext.Context, param2 io.Writer, param3 string, param4 string) (string, error) {
-	f.RunCall.Lock()
-	defer f.RunCall.Unlock()
+func (f *DockerSetupPhase) Run(param1 context.Context, param2 io.Writer, param3 string, param4 string) (string, error) {
+	f.RunCall.mutex.Lock()
+	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.Ctx = param1
 	f.RunCall.Receives.Logs = param2
@@ -83,8 +83,8 @@ func (f *DockerSetupPhase) Run(param1 gocontext.Context, param2 io.Writer, param
 	return f.RunCall.Returns.ContainerID, f.RunCall.Returns.Err
 }
 func (f *DockerSetupPhase) WithBuildpacks(param1 ...string) docker.SetupPhase {
-	f.WithBuildpacksCall.Lock()
-	defer f.WithBuildpacksCall.Unlock()
+	f.WithBuildpacksCall.mutex.Lock()
+	defer f.WithBuildpacksCall.mutex.Unlock()
 	f.WithBuildpacksCall.CallCount++
 	f.WithBuildpacksCall.Receives.Buildpacks = param1
 	if f.WithBuildpacksCall.Stub != nil {
@@ -93,8 +93,8 @@ func (f *DockerSetupPhase) WithBuildpacks(param1 ...string) docker.SetupPhase {
 	return f.WithBuildpacksCall.Returns.SetupPhase
 }
 func (f *DockerSetupPhase) WithEnv(param1 map[string]string) docker.SetupPhase {
-	f.WithEnvCall.Lock()
-	defer f.WithEnvCall.Unlock()
+	f.WithEnvCall.mutex.Lock()
+	defer f.WithEnvCall.mutex.Unlock()
 	f.WithEnvCall.CallCount++
 	f.WithEnvCall.Receives.Env = param1
 	if f.WithEnvCall.Stub != nil {
@@ -104,8 +104,8 @@ func (f *DockerSetupPhase) WithEnv(param1 map[string]string) docker.SetupPhase {
 }
 func (f *DockerSetupPhase) WithServices(param1 map[string]map[string]interface {
 }) docker.SetupPhase {
-	f.WithServicesCall.Lock()
-	defer f.WithServicesCall.Unlock()
+	f.WithServicesCall.mutex.Lock()
+	defer f.WithServicesCall.mutex.Unlock()
 	f.WithServicesCall.CallCount++
 	f.WithServicesCall.Receives.Services = param1
 	if f.WithServicesCall.Stub != nil {
@@ -114,8 +114,8 @@ func (f *DockerSetupPhase) WithServices(param1 map[string]map[string]interface {
 	return f.WithServicesCall.Returns.SetupPhase
 }
 func (f *DockerSetupPhase) WithoutInternetAccess() docker.SetupPhase {
-	f.WithoutInternetAccessCall.Lock()
-	defer f.WithoutInternetAccessCall.Unlock()
+	f.WithoutInternetAccessCall.mutex.Lock()
+	defer f.WithoutInternetAccessCall.mutex.Unlock()
 	f.WithoutInternetAccessCall.CallCount++
 	if f.WithoutInternetAccessCall.Stub != nil {
 		return f.WithoutInternetAccessCall.Stub()

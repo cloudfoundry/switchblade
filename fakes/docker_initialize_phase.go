@@ -8,7 +8,7 @@ import (
 
 type DockerInitializePhase struct {
 	RunCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			BuildpackSlice []docker.Buildpack
@@ -18,8 +18,8 @@ type DockerInitializePhase struct {
 }
 
 func (f *DockerInitializePhase) Run(param1 []docker.Buildpack) {
-	f.RunCall.Lock()
-	defer f.RunCall.Unlock()
+	f.RunCall.mutex.Lock()
+	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.BuildpackSlice = param1
 	if f.RunCall.Stub != nil {

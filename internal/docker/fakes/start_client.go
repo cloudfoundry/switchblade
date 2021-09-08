@@ -1,65 +1,65 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"io"
 	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-	specs "github.com/opencontainers/image-spec/specs-go/v1"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type StartClient struct {
 	ContainerCreateCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx              gocontext.Context
+			Ctx              context.Context
 			Config           *container.Config
 			HostConfig       *container.HostConfig
 			NetworkingConfig *network.NetworkingConfig
-			Platform         *specs.Platform
+			Platform         *v1.Platform
 			ContainerName    string
 		}
 		Returns struct {
 			ContainerCreateCreatedBody container.ContainerCreateCreatedBody
 			Error                      error
 		}
-		Stub func(gocontext.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *specs.Platform, string) (container.ContainerCreateCreatedBody, error)
+		Stub func(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *v1.Platform, string) (container.ContainerCreateCreatedBody, error)
 	}
 	ContainerInspectCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 		}
 		Returns struct {
 			ContainerJSON types.ContainerJSON
 			Error         error
 		}
-		Stub func(gocontext.Context, string) (types.ContainerJSON, error)
+		Stub func(context.Context, string) (types.ContainerJSON, error)
 	}
 	ContainerStartCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			Options     types.ContainerStartOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, types.ContainerStartOptions) error
+		Stub func(context.Context, string, types.ContainerStartOptions) error
 	}
 	CopyToContainerCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			DstPath     string
 			Content     io.Reader
@@ -68,13 +68,13 @@ type StartClient struct {
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, string, io.Reader, types.CopyToContainerOptions) error
+		Stub func(context.Context, string, string, io.Reader, types.CopyToContainerOptions) error
 	}
 }
 
-func (f *StartClient) ContainerCreate(param1 gocontext.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *specs.Platform, param6 string) (container.ContainerCreateCreatedBody, error) {
-	f.ContainerCreateCall.Lock()
-	defer f.ContainerCreateCall.Unlock()
+func (f *StartClient) ContainerCreate(param1 context.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *v1.Platform, param6 string) (container.ContainerCreateCreatedBody, error) {
+	f.ContainerCreateCall.mutex.Lock()
+	defer f.ContainerCreateCall.mutex.Unlock()
 	f.ContainerCreateCall.CallCount++
 	f.ContainerCreateCall.Receives.Ctx = param1
 	f.ContainerCreateCall.Receives.Config = param2
@@ -87,9 +87,9 @@ func (f *StartClient) ContainerCreate(param1 gocontext.Context, param2 *containe
 	}
 	return f.ContainerCreateCall.Returns.ContainerCreateCreatedBody, f.ContainerCreateCall.Returns.Error
 }
-func (f *StartClient) ContainerInspect(param1 gocontext.Context, param2 string) (types.ContainerJSON, error) {
-	f.ContainerInspectCall.Lock()
-	defer f.ContainerInspectCall.Unlock()
+func (f *StartClient) ContainerInspect(param1 context.Context, param2 string) (types.ContainerJSON, error) {
+	f.ContainerInspectCall.mutex.Lock()
+	defer f.ContainerInspectCall.mutex.Unlock()
 	f.ContainerInspectCall.CallCount++
 	f.ContainerInspectCall.Receives.Ctx = param1
 	f.ContainerInspectCall.Receives.ContainerID = param2
@@ -98,9 +98,9 @@ func (f *StartClient) ContainerInspect(param1 gocontext.Context, param2 string) 
 	}
 	return f.ContainerInspectCall.Returns.ContainerJSON, f.ContainerInspectCall.Returns.Error
 }
-func (f *StartClient) ContainerStart(param1 gocontext.Context, param2 string, param3 types.ContainerStartOptions) error {
-	f.ContainerStartCall.Lock()
-	defer f.ContainerStartCall.Unlock()
+func (f *StartClient) ContainerStart(param1 context.Context, param2 string, param3 types.ContainerStartOptions) error {
+	f.ContainerStartCall.mutex.Lock()
+	defer f.ContainerStartCall.mutex.Unlock()
 	f.ContainerStartCall.CallCount++
 	f.ContainerStartCall.Receives.Ctx = param1
 	f.ContainerStartCall.Receives.ContainerID = param2
@@ -110,9 +110,9 @@ func (f *StartClient) ContainerStart(param1 gocontext.Context, param2 string, pa
 	}
 	return f.ContainerStartCall.Returns.Error
 }
-func (f *StartClient) CopyToContainer(param1 gocontext.Context, param2 string, param3 string, param4 io.Reader, param5 types.CopyToContainerOptions) error {
-	f.CopyToContainerCall.Lock()
-	defer f.CopyToContainerCall.Unlock()
+func (f *StartClient) CopyToContainer(param1 context.Context, param2 string, param3 string, param4 io.Reader, param5 types.CopyToContainerOptions) error {
+	f.CopyToContainerCall.mutex.Lock()
+	defer f.CopyToContainerCall.mutex.Unlock()
 	f.CopyToContainerCall.CallCount++
 	f.CopyToContainerCall.Receives.Ctx = param1
 	f.CopyToContainerCall.Receives.ContainerID = param2

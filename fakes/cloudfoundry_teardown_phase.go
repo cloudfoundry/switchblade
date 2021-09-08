@@ -4,7 +4,7 @@ import "sync"
 
 type CloudFoundryTeardownPhase struct {
 	RunCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Home string
@@ -18,8 +18,8 @@ type CloudFoundryTeardownPhase struct {
 }
 
 func (f *CloudFoundryTeardownPhase) Run(param1 string, param2 string) error {
-	f.RunCall.Lock()
-	defer f.RunCall.Unlock()
+	f.RunCall.mutex.Lock()
+	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.Home = param1
 	f.RunCall.Receives.Name = param2

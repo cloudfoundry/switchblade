@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"io"
 	"sync"
 
@@ -11,10 +11,10 @@ import (
 
 type StageClient struct {
 	ContainerLogsCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx       gocontext.Context
+			Ctx       context.Context
 			Container string
 			Options   types.ContainerLogsOptions
 		}
@@ -22,39 +22,39 @@ type StageClient struct {
 			ReadCloser io.ReadCloser
 			Error      error
 		}
-		Stub func(gocontext.Context, string, types.ContainerLogsOptions) (io.ReadCloser, error)
+		Stub func(context.Context, string, types.ContainerLogsOptions) (io.ReadCloser, error)
 	}
 	ContainerRemoveCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			Options     types.ContainerRemoveOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, types.ContainerRemoveOptions) error
+		Stub func(context.Context, string, types.ContainerRemoveOptions) error
 	}
 	ContainerStartCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			Options     types.ContainerStartOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, types.ContainerStartOptions) error
+		Stub func(context.Context, string, types.ContainerStartOptions) error
 	}
 	ContainerWaitCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			Condition   container.WaitCondition
 		}
@@ -62,13 +62,13 @@ type StageClient struct {
 			ContainerWaitOKBodyChannel <-chan container.ContainerWaitOKBody
 			ErrorChannel               <-chan error
 		}
-		Stub func(gocontext.Context, string, container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error)
+		Stub func(context.Context, string, container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error)
 	}
 	CopyFromContainerCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			SrcPath     string
 		}
@@ -77,13 +77,13 @@ type StageClient struct {
 			ContainerPathStat types.ContainerPathStat
 			Error             error
 		}
-		Stub func(gocontext.Context, string, string) (io.ReadCloser, types.ContainerPathStat, error)
+		Stub func(context.Context, string, string) (io.ReadCloser, types.ContainerPathStat, error)
 	}
 }
 
-func (f *StageClient) ContainerLogs(param1 gocontext.Context, param2 string, param3 types.ContainerLogsOptions) (io.ReadCloser, error) {
-	f.ContainerLogsCall.Lock()
-	defer f.ContainerLogsCall.Unlock()
+func (f *StageClient) ContainerLogs(param1 context.Context, param2 string, param3 types.ContainerLogsOptions) (io.ReadCloser, error) {
+	f.ContainerLogsCall.mutex.Lock()
+	defer f.ContainerLogsCall.mutex.Unlock()
 	f.ContainerLogsCall.CallCount++
 	f.ContainerLogsCall.Receives.Ctx = param1
 	f.ContainerLogsCall.Receives.Container = param2
@@ -93,9 +93,9 @@ func (f *StageClient) ContainerLogs(param1 gocontext.Context, param2 string, par
 	}
 	return f.ContainerLogsCall.Returns.ReadCloser, f.ContainerLogsCall.Returns.Error
 }
-func (f *StageClient) ContainerRemove(param1 gocontext.Context, param2 string, param3 types.ContainerRemoveOptions) error {
-	f.ContainerRemoveCall.Lock()
-	defer f.ContainerRemoveCall.Unlock()
+func (f *StageClient) ContainerRemove(param1 context.Context, param2 string, param3 types.ContainerRemoveOptions) error {
+	f.ContainerRemoveCall.mutex.Lock()
+	defer f.ContainerRemoveCall.mutex.Unlock()
 	f.ContainerRemoveCall.CallCount++
 	f.ContainerRemoveCall.Receives.Ctx = param1
 	f.ContainerRemoveCall.Receives.ContainerID = param2
@@ -105,9 +105,9 @@ func (f *StageClient) ContainerRemove(param1 gocontext.Context, param2 string, p
 	}
 	return f.ContainerRemoveCall.Returns.Error
 }
-func (f *StageClient) ContainerStart(param1 gocontext.Context, param2 string, param3 types.ContainerStartOptions) error {
-	f.ContainerStartCall.Lock()
-	defer f.ContainerStartCall.Unlock()
+func (f *StageClient) ContainerStart(param1 context.Context, param2 string, param3 types.ContainerStartOptions) error {
+	f.ContainerStartCall.mutex.Lock()
+	defer f.ContainerStartCall.mutex.Unlock()
 	f.ContainerStartCall.CallCount++
 	f.ContainerStartCall.Receives.Ctx = param1
 	f.ContainerStartCall.Receives.ContainerID = param2
@@ -117,9 +117,9 @@ func (f *StageClient) ContainerStart(param1 gocontext.Context, param2 string, pa
 	}
 	return f.ContainerStartCall.Returns.Error
 }
-func (f *StageClient) ContainerWait(param1 gocontext.Context, param2 string, param3 container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error) {
-	f.ContainerWaitCall.Lock()
-	defer f.ContainerWaitCall.Unlock()
+func (f *StageClient) ContainerWait(param1 context.Context, param2 string, param3 container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error) {
+	f.ContainerWaitCall.mutex.Lock()
+	defer f.ContainerWaitCall.mutex.Unlock()
 	f.ContainerWaitCall.CallCount++
 	f.ContainerWaitCall.Receives.Ctx = param1
 	f.ContainerWaitCall.Receives.ContainerID = param2
@@ -129,9 +129,9 @@ func (f *StageClient) ContainerWait(param1 gocontext.Context, param2 string, par
 	}
 	return f.ContainerWaitCall.Returns.ContainerWaitOKBodyChannel, f.ContainerWaitCall.Returns.ErrorChannel
 }
-func (f *StageClient) CopyFromContainer(param1 gocontext.Context, param2 string, param3 string) (io.ReadCloser, types.ContainerPathStat, error) {
-	f.CopyFromContainerCall.Lock()
-	defer f.CopyFromContainerCall.Unlock()
+func (f *StageClient) CopyFromContainer(param1 context.Context, param2 string, param3 string) (io.ReadCloser, types.ContainerPathStat, error) {
+	f.CopyFromContainerCall.mutex.Lock()
+	defer f.CopyFromContainerCall.mutex.Unlock()
 	f.CopyFromContainerCall.CallCount++
 	f.CopyFromContainerCall.Receives.Ctx = param1
 	f.CopyFromContainerCall.Receives.ContainerID = param2

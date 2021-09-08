@@ -1,29 +1,29 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"sync"
 )
 
 type StartNetworkManager struct {
 	ConnectCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			Name        string
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, string) error
+		Stub func(context.Context, string, string) error
 	}
 }
 
-func (f *StartNetworkManager) Connect(param1 gocontext.Context, param2 string, param3 string) error {
-	f.ConnectCall.Lock()
-	defer f.ConnectCall.Unlock()
+func (f *StartNetworkManager) Connect(param1 context.Context, param2 string, param3 string) error {
+	f.ConnectCall.mutex.Lock()
+	defer f.ConnectCall.mutex.Unlock()
 	f.ConnectCall.CallCount++
 	f.ConnectCall.Receives.Ctx = param1
 	f.ConnectCall.Receives.ContainerID = param2

@@ -2,35 +2,37 @@ package fakes
 
 import (
 	"context"
-	"io"
-	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-	specs "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"io"
+	"sync"
+
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type SetupClient struct {
 	ContainerCreateCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Ctx              context.Context
 			Config           *container.Config
 			HostConfig       *container.HostConfig
 			NetworkingConfig *network.NetworkingConfig
-			Platform         *specs.Platform
+			Platform         *v1.Platform
 			ContainerName    string
 		}
 		Returns struct {
 			ContainerCreateCreatedBody container.ContainerCreateCreatedBody
 			Error                      error
 		}
-		Stub func(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *specs.Platform, string) (container.ContainerCreateCreatedBody, error)
+		Stub func(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *v1.Platform, string) (container.ContainerCreateCreatedBody, error)
 	}
 	ContainerInspectCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Ctx         context.Context
@@ -43,7 +45,7 @@ type SetupClient struct {
 		Stub func(context.Context, string) (types.ContainerJSON, error)
 	}
 	ContainerRemoveCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Ctx         context.Context
@@ -56,7 +58,7 @@ type SetupClient struct {
 		Stub func(context.Context, string, types.ContainerRemoveOptions) error
 	}
 	CopyToContainerCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Ctx         context.Context
@@ -71,7 +73,7 @@ type SetupClient struct {
 		Stub func(context.Context, string, string, io.Reader, types.CopyToContainerOptions) error
 	}
 	ImagePullCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Ctx     context.Context
@@ -86,9 +88,9 @@ type SetupClient struct {
 	}
 }
 
-func (f *SetupClient) ContainerCreate(param1 context.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *specs.Platform, param6 string) (container.ContainerCreateCreatedBody, error) {
-	f.ContainerCreateCall.Lock()
-	defer f.ContainerCreateCall.Unlock()
+func (f *SetupClient) ContainerCreate(param1 context.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *v1.Platform, param6 string) (container.ContainerCreateCreatedBody, error) {
+	f.ContainerCreateCall.mutex.Lock()
+	defer f.ContainerCreateCall.mutex.Unlock()
 	f.ContainerCreateCall.CallCount++
 	f.ContainerCreateCall.Receives.Ctx = param1
 	f.ContainerCreateCall.Receives.Config = param2
@@ -102,8 +104,8 @@ func (f *SetupClient) ContainerCreate(param1 context.Context, param2 *container.
 	return f.ContainerCreateCall.Returns.ContainerCreateCreatedBody, f.ContainerCreateCall.Returns.Error
 }
 func (f *SetupClient) ContainerInspect(param1 context.Context, param2 string) (types.ContainerJSON, error) {
-	f.ContainerInspectCall.Lock()
-	defer f.ContainerInspectCall.Unlock()
+	f.ContainerInspectCall.mutex.Lock()
+	defer f.ContainerInspectCall.mutex.Unlock()
 	f.ContainerInspectCall.CallCount++
 	f.ContainerInspectCall.Receives.Ctx = param1
 	f.ContainerInspectCall.Receives.ContainerID = param2
@@ -113,8 +115,8 @@ func (f *SetupClient) ContainerInspect(param1 context.Context, param2 string) (t
 	return f.ContainerInspectCall.Returns.ContainerJSON, f.ContainerInspectCall.Returns.Error
 }
 func (f *SetupClient) ContainerRemove(param1 context.Context, param2 string, param3 types.ContainerRemoveOptions) error {
-	f.ContainerRemoveCall.Lock()
-	defer f.ContainerRemoveCall.Unlock()
+	f.ContainerRemoveCall.mutex.Lock()
+	defer f.ContainerRemoveCall.mutex.Unlock()
 	f.ContainerRemoveCall.CallCount++
 	f.ContainerRemoveCall.Receives.Ctx = param1
 	f.ContainerRemoveCall.Receives.ContainerID = param2
@@ -125,8 +127,8 @@ func (f *SetupClient) ContainerRemove(param1 context.Context, param2 string, par
 	return f.ContainerRemoveCall.Returns.Error
 }
 func (f *SetupClient) CopyToContainer(param1 context.Context, param2 string, param3 string, param4 io.Reader, param5 types.CopyToContainerOptions) error {
-	f.CopyToContainerCall.Lock()
-	defer f.CopyToContainerCall.Unlock()
+	f.CopyToContainerCall.mutex.Lock()
+	defer f.CopyToContainerCall.mutex.Unlock()
 	f.CopyToContainerCall.CallCount++
 	f.CopyToContainerCall.Receives.Ctx = param1
 	f.CopyToContainerCall.Receives.ContainerID = param2
@@ -139,8 +141,8 @@ func (f *SetupClient) CopyToContainer(param1 context.Context, param2 string, par
 	return f.CopyToContainerCall.Returns.Error
 }
 func (f *SetupClient) ImagePull(param1 context.Context, param2 string, param3 types.ImagePullOptions) (io.ReadCloser, error) {
-	f.ImagePullCall.Lock()
-	defer f.ImagePullCall.Unlock()
+	f.ImagePullCall.mutex.Lock()
+	defer f.ImagePullCall.mutex.Unlock()
 	f.ImagePullCall.CallCount++
 	f.ImagePullCall.Receives.Ctx = param1
 	f.ImagePullCall.Receives.Ref = param2

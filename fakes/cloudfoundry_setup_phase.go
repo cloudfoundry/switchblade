@@ -9,7 +9,7 @@ import (
 
 type CloudFoundrySetupPhase struct {
 	RunCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Logs   io.Writer
@@ -24,7 +24,7 @@ type CloudFoundrySetupPhase struct {
 		Stub func(io.Writer, string, string, string) (string, error)
 	}
 	WithBuildpacksCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Buildpacks []string
@@ -35,7 +35,7 @@ type CloudFoundrySetupPhase struct {
 		Stub func(...string) cloudfoundry.SetupPhase
 	}
 	WithEnvCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Env map[string]string
@@ -46,7 +46,7 @@ type CloudFoundrySetupPhase struct {
 		Stub func(map[string]string) cloudfoundry.SetupPhase
 	}
 	WithServicesCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Services map[string]map[string]interface {
@@ -59,7 +59,7 @@ type CloudFoundrySetupPhase struct {
 		}) cloudfoundry.SetupPhase
 	}
 	WithoutInternetAccessCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Returns   struct {
 			SetupPhase cloudfoundry.SetupPhase
@@ -69,8 +69,8 @@ type CloudFoundrySetupPhase struct {
 }
 
 func (f *CloudFoundrySetupPhase) Run(param1 io.Writer, param2 string, param3 string, param4 string) (string, error) {
-	f.RunCall.Lock()
-	defer f.RunCall.Unlock()
+	f.RunCall.mutex.Lock()
+	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.Logs = param1
 	f.RunCall.Receives.Home = param2
@@ -82,8 +82,8 @@ func (f *CloudFoundrySetupPhase) Run(param1 io.Writer, param2 string, param3 str
 	return f.RunCall.Returns.Url, f.RunCall.Returns.Err
 }
 func (f *CloudFoundrySetupPhase) WithBuildpacks(param1 ...string) cloudfoundry.SetupPhase {
-	f.WithBuildpacksCall.Lock()
-	defer f.WithBuildpacksCall.Unlock()
+	f.WithBuildpacksCall.mutex.Lock()
+	defer f.WithBuildpacksCall.mutex.Unlock()
 	f.WithBuildpacksCall.CallCount++
 	f.WithBuildpacksCall.Receives.Buildpacks = param1
 	if f.WithBuildpacksCall.Stub != nil {
@@ -92,8 +92,8 @@ func (f *CloudFoundrySetupPhase) WithBuildpacks(param1 ...string) cloudfoundry.S
 	return f.WithBuildpacksCall.Returns.SetupPhase
 }
 func (f *CloudFoundrySetupPhase) WithEnv(param1 map[string]string) cloudfoundry.SetupPhase {
-	f.WithEnvCall.Lock()
-	defer f.WithEnvCall.Unlock()
+	f.WithEnvCall.mutex.Lock()
+	defer f.WithEnvCall.mutex.Unlock()
 	f.WithEnvCall.CallCount++
 	f.WithEnvCall.Receives.Env = param1
 	if f.WithEnvCall.Stub != nil {
@@ -103,8 +103,8 @@ func (f *CloudFoundrySetupPhase) WithEnv(param1 map[string]string) cloudfoundry.
 }
 func (f *CloudFoundrySetupPhase) WithServices(param1 map[string]map[string]interface {
 }) cloudfoundry.SetupPhase {
-	f.WithServicesCall.Lock()
-	defer f.WithServicesCall.Unlock()
+	f.WithServicesCall.mutex.Lock()
+	defer f.WithServicesCall.mutex.Unlock()
 	f.WithServicesCall.CallCount++
 	f.WithServicesCall.Receives.Services = param1
 	if f.WithServicesCall.Stub != nil {
@@ -113,8 +113,8 @@ func (f *CloudFoundrySetupPhase) WithServices(param1 map[string]map[string]inter
 	return f.WithServicesCall.Returns.SetupPhase
 }
 func (f *CloudFoundrySetupPhase) WithoutInternetAccess() cloudfoundry.SetupPhase {
-	f.WithoutInternetAccessCall.Lock()
-	defer f.WithoutInternetAccessCall.Unlock()
+	f.WithoutInternetAccessCall.mutex.Lock()
+	defer f.WithoutInternetAccessCall.mutex.Unlock()
 	f.WithoutInternetAccessCall.CallCount++
 	if f.WithoutInternetAccessCall.Stub != nil {
 		return f.WithoutInternetAccessCall.Stub()
