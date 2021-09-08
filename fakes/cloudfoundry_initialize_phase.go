@@ -8,7 +8,7 @@ import (
 
 type CloudFoundryInitializePhase struct {
 	RunCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			BuildpackSlice []cloudfoundry.Buildpack
@@ -21,8 +21,8 @@ type CloudFoundryInitializePhase struct {
 }
 
 func (f *CloudFoundryInitializePhase) Run(param1 []cloudfoundry.Buildpack) error {
-	f.RunCall.Lock()
-	defer f.RunCall.Unlock()
+	f.RunCall.mutex.Lock()
+	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.BuildpackSlice = param1
 	if f.RunCall.Stub != nil {

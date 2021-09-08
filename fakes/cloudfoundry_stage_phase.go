@@ -7,7 +7,7 @@ import (
 
 type CloudFoundryStagePhase struct {
 	RunCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Logs io.Writer
@@ -23,8 +23,8 @@ type CloudFoundryStagePhase struct {
 }
 
 func (f *CloudFoundryStagePhase) Run(param1 io.Writer, param2 string, param3 string) (string, error) {
-	f.RunCall.Lock()
-	defer f.RunCall.Unlock()
+	f.RunCall.mutex.Lock()
+	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.Logs = param1
 	f.RunCall.Receives.Home = param2

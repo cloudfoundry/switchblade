@@ -19,7 +19,7 @@ type Buildpack struct {
 type Service map[string]interface{}
 
 type Platform struct {
-	initialize InitializeProcess
+	initialize initializeProcess
 
 	Deploy DeployProcess
 	Delete DeleteProcess
@@ -38,7 +38,7 @@ type DeleteProcess interface {
 	Execute(name string) error
 }
 
-type InitializeProcess interface {
+type initializeProcess interface {
 	Execute(buildpacks ...Buildpack) error
 }
 

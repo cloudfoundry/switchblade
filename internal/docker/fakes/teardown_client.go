@@ -1,7 +1,7 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"sync"
 
 	"github.com/docker/docker/api/types"
@@ -9,23 +9,23 @@ import (
 
 type TeardownClient struct {
 	ContainerRemoveCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx         gocontext.Context
+			Ctx         context.Context
 			ContainerID string
 			Options     types.ContainerRemoveOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string, types.ContainerRemoveOptions) error
+		Stub func(context.Context, string, types.ContainerRemoveOptions) error
 	}
 }
 
-func (f *TeardownClient) ContainerRemove(param1 gocontext.Context, param2 string, param3 types.ContainerRemoveOptions) error {
-	f.ContainerRemoveCall.Lock()
-	defer f.ContainerRemoveCall.Unlock()
+func (f *TeardownClient) ContainerRemove(param1 context.Context, param2 string, param3 types.ContainerRemoveOptions) error {
+	f.ContainerRemoveCall.mutex.Lock()
+	defer f.ContainerRemoveCall.mutex.Unlock()
 	f.ContainerRemoveCall.CallCount++
 	f.ContainerRemoveCall.Receives.Ctx = param1
 	f.ContainerRemoveCall.Receives.ContainerID = param2

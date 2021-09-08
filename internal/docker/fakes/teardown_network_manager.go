@@ -1,28 +1,28 @@
 package fakes
 
 import (
-	gocontext "context"
+	"context"
 	"sync"
 )
 
 type TeardownNetworkManager struct {
 	DeleteCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
-			Ctx  gocontext.Context
+			Ctx  context.Context
 			Name string
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(gocontext.Context, string) error
+		Stub func(context.Context, string) error
 	}
 }
 
-func (f *TeardownNetworkManager) Delete(param1 gocontext.Context, param2 string) error {
-	f.DeleteCall.Lock()
-	defer f.DeleteCall.Unlock()
+func (f *TeardownNetworkManager) Delete(param1 context.Context, param2 string) error {
+	f.DeleteCall.mutex.Lock()
+	defer f.DeleteCall.mutex.Unlock()
 	f.DeleteCall.CallCount++
 	f.DeleteCall.Receives.Ctx = param1
 	f.DeleteCall.Receives.Name = param2

@@ -4,7 +4,7 @@ import "sync"
 
 type LifecycleBuilder struct {
 	BuildCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			SourceURI string
@@ -19,8 +19,8 @@ type LifecycleBuilder struct {
 }
 
 func (f *LifecycleBuilder) Build(param1 string, param2 string) (string, error) {
-	f.BuildCall.Lock()
-	defer f.BuildCall.Unlock()
+	f.BuildCall.mutex.Lock()
+	defer f.BuildCall.mutex.Unlock()
 	f.BuildCall.CallCount++
 	f.BuildCall.Receives.SourceURI = param1
 	f.BuildCall.Receives.Workspace = param2

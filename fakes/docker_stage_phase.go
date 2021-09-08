@@ -8,7 +8,7 @@ import (
 
 type DockerStagePhase struct {
 	RunCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Ctx         context.Context
@@ -25,8 +25,8 @@ type DockerStagePhase struct {
 }
 
 func (f *DockerStagePhase) Run(param1 context.Context, param2 io.Writer, param3 string, param4 string) (string, error) {
-	f.RunCall.Lock()
-	defer f.RunCall.Unlock()
+	f.RunCall.mutex.Lock()
+	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.Ctx = param1
 	f.RunCall.Receives.Logs = param2

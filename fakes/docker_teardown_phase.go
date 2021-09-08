@@ -7,7 +7,7 @@ import (
 
 type DockerTeardownPhase struct {
 	RunCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Ctx  context.Context
@@ -21,8 +21,8 @@ type DockerTeardownPhase struct {
 }
 
 func (f *DockerTeardownPhase) Run(param1 context.Context, param2 string) error {
-	f.RunCall.Lock()
-	defer f.RunCall.Unlock()
+	f.RunCall.mutex.Lock()
+	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.Ctx = param1
 	f.RunCall.Receives.Name = param2

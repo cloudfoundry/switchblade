@@ -7,7 +7,7 @@ import (
 
 type BPCache struct {
 	FetchCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Url string
@@ -21,8 +21,8 @@ type BPCache struct {
 }
 
 func (f *BPCache) Fetch(param1 string) (io.ReadCloser, error) {
-	f.FetchCall.Lock()
-	defer f.FetchCall.Unlock()
+	f.FetchCall.mutex.Lock()
+	defer f.FetchCall.mutex.Unlock()
 	f.FetchCall.CallCount++
 	f.FetchCall.Receives.Url = param1
 	if f.FetchCall.Stub != nil {

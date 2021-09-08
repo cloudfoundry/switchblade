@@ -8,7 +8,7 @@ import (
 
 type BuildpacksBuilder struct {
 	BuildCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Workspace string
@@ -21,7 +21,7 @@ type BuildpacksBuilder struct {
 		Stub func(string, string) (string, error)
 	}
 	OrderCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Returns   struct {
 			Order      string
@@ -31,7 +31,7 @@ type BuildpacksBuilder struct {
 		Stub func() (string, bool, error)
 	}
 	WithBuildpacksCall struct {
-		sync.Mutex
+		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Buildpacks []string
@@ -44,8 +44,8 @@ type BuildpacksBuilder struct {
 }
 
 func (f *BuildpacksBuilder) Build(param1 string, param2 string) (string, error) {
-	f.BuildCall.Lock()
-	defer f.BuildCall.Unlock()
+	f.BuildCall.mutex.Lock()
+	defer f.BuildCall.mutex.Unlock()
 	f.BuildCall.CallCount++
 	f.BuildCall.Receives.Workspace = param1
 	f.BuildCall.Receives.Name = param2
@@ -55,8 +55,8 @@ func (f *BuildpacksBuilder) Build(param1 string, param2 string) (string, error) 
 	return f.BuildCall.Returns.Path, f.BuildCall.Returns.Err
 }
 func (f *BuildpacksBuilder) Order() (string, bool, error) {
-	f.OrderCall.Lock()
-	defer f.OrderCall.Unlock()
+	f.OrderCall.mutex.Lock()
+	defer f.OrderCall.mutex.Unlock()
 	f.OrderCall.CallCount++
 	if f.OrderCall.Stub != nil {
 		return f.OrderCall.Stub()
@@ -64,8 +64,8 @@ func (f *BuildpacksBuilder) Order() (string, bool, error) {
 	return f.OrderCall.Returns.Order, f.OrderCall.Returns.SkipDetect, f.OrderCall.Returns.Err
 }
 func (f *BuildpacksBuilder) WithBuildpacks(param1 ...string) docker.BuildpacksBuilder {
-	f.WithBuildpacksCall.Lock()
-	defer f.WithBuildpacksCall.Unlock()
+	f.WithBuildpacksCall.mutex.Lock()
+	defer f.WithBuildpacksCall.mutex.Unlock()
 	f.WithBuildpacksCall.CallCount++
 	f.WithBuildpacksCall.Receives.Buildpacks = param1
 	if f.WithBuildpacksCall.Stub != nil {
