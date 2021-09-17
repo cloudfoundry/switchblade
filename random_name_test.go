@@ -15,6 +15,6 @@ func testRandomName(t *testing.T, context spec.G, it spec.S) {
 	it("generates a random name", func() {
 		name, err := switchblade.RandomName()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(name).To(MatchRegexp(`^switchblade\-[0123456789abcdefghjkmnpqrstvwxyz]{26}$`))
+		Expect(name).To(MatchRegexp(`^switchblade\-[0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]{9}$`))
 	})
 }
