@@ -4,13 +4,11 @@ go 1.16
 
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
-	github.com/containerd/containerd v1.3.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v20.10.10+incompatible
+	github.com/docker/docker v20.10.15+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/gomega v1.19.0
@@ -22,8 +20,6 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
-	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	gotest.tools v2.2.0+incompatible // indirect
 	gotest.tools/v3 v3.0.3 // indirect
 )
