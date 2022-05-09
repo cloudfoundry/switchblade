@@ -11,7 +11,7 @@ import (
 
 	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
 	"github.com/cloudfoundry/switchblade/internal/cloudfoundry/fakes"
-	"github.com/paketo-buildpacks/packit/pexec"
+	"github.com/paketo-buildpacks/packit/v2/pexec"
 	"github.com/sclevine/spec"
 
 	. "github.com/cloudfoundry/switchblade/matchers"
