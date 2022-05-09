@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
-	"github.com/paketo-buildpacks/packit/vacation"
+	"github.com/paketo-buildpacks/packit/v2/vacation"
 	"github.com/sclevine/spec"
 
 	. "github.com/onsi/gomega"
@@ -59,7 +59,7 @@ func testTGZArchiver(t *testing.T, context spec.G, it spec.S) {
 		Expect(err).NotTo(HaveOccurred())
 		defer file.Close()
 
-		err = vacation.NewTarGzipArchive(file).Decompress(testOutput)
+		err = vacation.NewGzipArchive(file).Decompress(testOutput)
 		Expect(err).NotTo(HaveOccurred())
 
 		files, err := filepath.Glob(filepath.Join(testOutput, "*"))
@@ -102,7 +102,7 @@ func testTGZArchiver(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 			defer file.Close()
 
-			err = vacation.NewTarGzipArchive(file).Decompress(testOutput)
+			err = vacation.NewGzipArchive(file).Decompress(testOutput)
 			Expect(err).NotTo(HaveOccurred())
 
 			files, err := filepath.Glob(filepath.Join(testOutput, "some", "path", "*"))

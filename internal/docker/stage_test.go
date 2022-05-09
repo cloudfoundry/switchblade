@@ -17,7 +17,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/paketo-buildpacks/packit/vacation"
+	"github.com/paketo-buildpacks/packit/v2/vacation"
 	"github.com/sclevine/spec"
 
 	. "github.com/cloudfoundry/switchblade/matchers"
@@ -132,7 +132,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			buildCache, err := os.Open(filepath.Join(workspace, "build-cache", "some-app.tar.gz"))
 			Expect(err).NotTo(HaveOccurred())
 
-			err = vacation.NewTarGzipArchive(buildCache).Decompress(filepath.Join(workspace, "build-cache-output"))
+			err = vacation.NewGzipArchive(buildCache).Decompress(filepath.Join(workspace, "build-cache-output"))
 			Expect(err).NotTo(HaveOccurred())
 
 			content, err = os.ReadFile(filepath.Join(workspace, "build-cache-output", "tmp", "cache", "some-file"))

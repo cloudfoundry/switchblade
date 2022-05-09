@@ -13,7 +13,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/paketo-buildpacks/packit/vacation"
+	"github.com/paketo-buildpacks/packit/v2/vacation"
 )
 
 type StagePhase interface {
@@ -140,7 +140,7 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 
 		if hdr.Name == "output-cache" {
 			cachePath := filepath.Join(s.workspace, "build-cache", name)
-			err = vacation.NewTarGzipArchive(tr).Decompress(cachePath)
+			err = vacation.NewGzipArchive(tr).Decompress(cachePath)
 			if err != nil {
 				return "", fmt.Errorf("failed to decompress build cache: %w", err)
 			}
