@@ -39,7 +39,7 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 				fmt.Fprint(w, "some string")
 			default:
 				fmt.Fprintln(w, "unknown path")
-				t.Fatal(fmt.Sprintf("unknown path: %s", req.URL.Path))
+				t.Fatalf("unknown path: %s", req.URL.Path)
 			}
 		}))
 

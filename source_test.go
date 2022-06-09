@@ -24,7 +24,7 @@ func testSource(t *testing.T, context spec.G, it spec.S) {
 		source, err = os.MkdirTemp("", "source")
 		Expect(err).NotTo(HaveOccurred())
 
-		err = os.WriteFile(filepath.Join(source, "some-file"), []byte("some-content"), 0644)
+		err = os.WriteFile(filepath.Join(source, "some-file"), []byte("some-content"), 0600)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
