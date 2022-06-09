@@ -376,6 +376,21 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 				})
 			})
 
+			context("when the build cache is not writeable", func() {
+				it.Before(func() {
+					Expect(os.MkdirAll(filepath.Join(workspace, "build-cache"), 0000)).To(Succeed())
+				})
+
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+					Expect(err).To(MatchError(ContainSubstring("failed to create build-cache path:")))
+					Expect(err).To(MatchError(ContainSubstring("permission denied")))
+				})
+			})
+
 			context("when the build cache internal tarball is malformed", func() {
 				it.Before(func() {
 					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
@@ -390,7 +405,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 						case "/tmp/output-cache":
 							tw := tar.NewWriter(buffer)
 							defer tw.Close()
-							err := tw.WriteHeader(&tar.Header{Name: "output-cache", Mode: 0600, Size: 20})
+							err := tw.WriteHeader(&tar.Header{Name: "output-cache", Mode: 0600, Size: 19})
 							if err != nil {
 								return nil, types.ContainerPathStat{}, err
 							}
@@ -410,7 +425,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 					logs := bytes.NewBuffer(nil)
 
 					_, err := stage.Run(ctx, logs, "some-container-id", "some-app")
-					Expect(err).To(MatchError(ContainSubstring("failed to decompress build cache:")))
+					Expect(err).To(MatchError(ContainSubstring("failed to recompress build cache:")))
 					Expect(err).To(MatchError(ContainSubstring("invalid header")))
 				})
 			})
