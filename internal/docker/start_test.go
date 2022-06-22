@@ -118,7 +118,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 					"LANG=en_US.UTF-8",
 					"MEMORY_LIMIT=1024m",
 					"PORT=8080",
-					`VCAP_APPLICATION={"application_name":"some-app","name":"some-app","process_type":"web"}`,
+					`VCAP_APPLICATION={"application_name":"some-app","name":"some-app","process_type":"web","limits":{"mem":1024}}`,
 					"VCAP_PLATFORM_OPTIONS={}",
 					"VCAP_SERVICES={}",
 				},
@@ -173,7 +173,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 					"SOME_KEY=some-value",
 					"VCAP_PLATFORM_OPTIONS={}",
 					"VCAP_SERVICES={}",
-					`VCAP_APPLICATION={"application_name":"some-app","name":"some-app","process_type":"web"}`,
+					`VCAP_APPLICATION={"application_name":"some-app","name":"some-app","process_type":"web","limits":{"mem":1024}}`,
 				}))
 			})
 		})
@@ -201,7 +201,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 					"PORT=8080",
 					"VCAP_PLATFORM_OPTIONS={}",
 					`VCAP_SERVICES={"user-provided":[{"credentials":{"other-key":"other-value"},"name":"some-app-other-service"},{"credentials":{"some-key":"some-value"},"name":"some-app-some-service"}]}`,
-					`VCAP_APPLICATION={"application_name":"some-app","name":"some-app","process_type":"web"}`,
+					`VCAP_APPLICATION={"application_name":"some-app","name":"some-app","process_type":"web","limits":{"mem":1024}}`,
 				}))
 			})
 		})
