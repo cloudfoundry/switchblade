@@ -59,6 +59,17 @@ type DockerSetupPhase struct {
 		Stub func(map[string]map[string]interface {
 		}) docker.SetupPhase
 	}
+	WithStackCall struct {
+		mutex     sync.Mutex
+		CallCount int
+		Receives  struct {
+			Stack string
+		}
+		Returns struct {
+			SetupPhase docker.SetupPhase
+		}
+		Stub func(string) docker.SetupPhase
+	}
 	WithoutInternetAccessCall struct {
 		mutex     sync.Mutex
 		CallCount int
@@ -112,6 +123,16 @@ func (f *DockerSetupPhase) WithServices(param1 map[string]map[string]interface {
 		return f.WithServicesCall.Stub(param1)
 	}
 	return f.WithServicesCall.Returns.SetupPhase
+}
+func (f *DockerSetupPhase) WithStack(param1 string) docker.SetupPhase {
+	f.WithStackCall.mutex.Lock()
+	defer f.WithStackCall.mutex.Unlock()
+	f.WithStackCall.CallCount++
+	f.WithStackCall.Receives.Stack = param1
+	if f.WithStackCall.Stub != nil {
+		return f.WithStackCall.Stub(param1)
+	}
+	return f.WithStackCall.Returns.SetupPhase
 }
 func (f *DockerSetupPhase) WithoutInternetAccess() docker.SetupPhase {
 	f.WithoutInternetAccessCall.mutex.Lock()

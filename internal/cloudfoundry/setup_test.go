@@ -116,7 +116,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			err = os.WriteFile(filepath.Join(workspace, "some-home", ".cf", "config.json"), []byte(`{"Target": "https://example.com"}`), 0600)
 			Expect(err).NotTo(HaveOccurred())
 
-			setup = cloudfoundry.NewSetup(executable, home).WithCustomHostLookup(func(fqdn string) ([]string, error) {
+			setup = cloudfoundry.NewSetup(executable, home, "default-stack").WithCustomHostLookup(func(fqdn string) ([]string, error) {
 				switch fqdn {
 				case "localhost":
 					return []string{"127.0.0.1", "::1"}, nil
@@ -186,7 +186,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[11]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start"}),
+				"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start", "-s", "default-stack"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[12]).To(MatchFields(IgnoreExtras, Fields{
@@ -273,7 +273,29 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 				Expect(executions).To(HaveLen(16))
 				Expect(executions[11]).To(MatchFields(IgnoreExtras, Fields{
-					"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start", "-b", "some-buildpack", "-b", "other-buildpack"}),
+					"Args": Equal([]string{
+						"push", "some-app",
+						"-p", "/some/path/to/my/app",
+						"--no-start",
+						"-s", "default-stack",
+						"-b", "some-buildpack",
+						"-b", "other-buildpack",
+					}),
+					"Env": ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+			})
+		})
+
+		context("when the app has a specific stack", func() {
+			it("pushes the app with that stack", func() {
+				_, err := setup.
+					WithStack("some-stack").
+					Run(bytes.NewBuffer(nil), filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(executions).To(HaveLen(16))
+				Expect(executions[11]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"push", "some-app", "-p", "/some/path/to/my/app", "--no-start", "-s", "some-stack"}),
 					"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 				}))
 			})

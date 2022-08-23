@@ -58,6 +58,17 @@ type CloudFoundrySetupPhase struct {
 		Stub func(map[string]map[string]interface {
 		}) cloudfoundry.SetupPhase
 	}
+	WithStackCall struct {
+		mutex     sync.Mutex
+		CallCount int
+		Receives  struct {
+			Stack string
+		}
+		Returns struct {
+			SetupPhase cloudfoundry.SetupPhase
+		}
+		Stub func(string) cloudfoundry.SetupPhase
+	}
 	WithoutInternetAccessCall struct {
 		mutex     sync.Mutex
 		CallCount int
@@ -111,6 +122,16 @@ func (f *CloudFoundrySetupPhase) WithServices(param1 map[string]map[string]inter
 		return f.WithServicesCall.Stub(param1)
 	}
 	return f.WithServicesCall.Returns.SetupPhase
+}
+func (f *CloudFoundrySetupPhase) WithStack(param1 string) cloudfoundry.SetupPhase {
+	f.WithStackCall.mutex.Lock()
+	defer f.WithStackCall.mutex.Unlock()
+	f.WithStackCall.CallCount++
+	f.WithStackCall.Receives.Stack = param1
+	if f.WithStackCall.Stub != nil {
+		return f.WithStackCall.Stub(param1)
+	}
+	return f.WithStackCall.Returns.SetupPhase
 }
 func (f *CloudFoundrySetupPhase) WithoutInternetAccess() cloudfoundry.SetupPhase {
 	f.WithoutInternetAccessCall.mutex.Lock()
