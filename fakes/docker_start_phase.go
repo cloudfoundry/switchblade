@@ -49,6 +49,17 @@ type DockerStartPhase struct {
 		Stub func(map[string]map[string]interface {
 		}) docker.StartPhase
 	}
+	WithStackCall struct {
+		mutex     sync.Mutex
+		CallCount int
+		Receives  struct {
+			Stack string
+		}
+		Returns struct {
+			StartPhase docker.StartPhase
+		}
+		Stub func(string) docker.StartPhase
+	}
 }
 
 func (f *DockerStartPhase) Run(param1 context.Context, param2 io.Writer, param3 string, param4 string) (string, string, error) {
@@ -84,4 +95,14 @@ func (f *DockerStartPhase) WithServices(param1 map[string]map[string]interface {
 		return f.WithServicesCall.Stub(param1)
 	}
 	return f.WithServicesCall.Returns.StartPhase
+}
+func (f *DockerStartPhase) WithStack(param1 string) docker.StartPhase {
+	f.WithStackCall.mutex.Lock()
+	defer f.WithStackCall.mutex.Unlock()
+	f.WithStackCall.CallCount++
+	f.WithStackCall.Receives.Stack = param1
+	if f.WithStackCall.Stub != nil {
+		return f.WithStackCall.Stub(param1)
+	}
+	return f.WithStackCall.Returns.StartPhase
 }

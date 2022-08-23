@@ -2,14 +2,12 @@ package fakes
 
 import (
 	"context"
+	"io"
+	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-
-	"io"
-	"sync"
-
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 

@@ -88,7 +88,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 
 			networkManager = &fakes.StartNetworkManager{}
 
-			start = docker.NewStart(client, networkManager, workspace)
+			start = docker.NewStart(client, networkManager, workspace, "default-stack")
 		})
 
 		it.After(func() {
@@ -106,7 +106,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 
 			Expect(client.ContainerCreateCall.Receives.ContainerName).To(Equal("some-app"))
 			Expect(client.ContainerCreateCall.Receives.Config).To(Equal(&container.Config{
-				Image: "cloudfoundry/cflinuxfs3:latest",
+				Image: "cloudfoundry/default-stack:latest",
 				Cmd: []string{
 					"/tmp/lifecycle/launcher",
 					"app",
@@ -150,6 +150,20 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 			Expect(client.ContainerStartCall.Receives.ContainerID).To(Equal("some-container-id"))
 
 			Expect(client.ContainerInspectCall.Receives.ContainerID).To(Equal("some-container-id"))
+		})
+
+		context("WithStack", func() {
+			it("sets the image for the container", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				_, _, err := start.
+					WithStack("some-stack").
+					Run(ctx, logs, "some-app", "some-command")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(client.ContainerCreateCall.Receives.Config.Image).To(Equal("cloudfoundry/some-stack:latest"))
+			})
 		})
 
 		context("WithEnv", func() {

@@ -121,6 +121,13 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("WithStack", func() {
+			it("uses that stack", func() {
+				platform.Deploy.WithStack("some-stack")
+				Expect(setup.WithStackCall.Receives.Stack).To(Equal("some-stack"))
+			})
+		})
+
 		context("WithEnv", func() {
 			it("uses those environment variables", func() {
 				platform.Deploy.WithEnv(map[string]string{"SOME_KEY": "some-value"})

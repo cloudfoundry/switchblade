@@ -83,7 +83,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			}
 			client.ContainerInspectCall.Returns.Error = errdefs.NotFound(errors.New("no such container"))
 
-			setup = docker.NewSetup(client, lifecycleBuilder, buildpacksBuilder, archiver, networkManager, workspace)
+			setup = docker.NewSetup(client, lifecycleBuilder, buildpacksBuilder, archiver, networkManager, workspace, "default-stack")
 		})
 
 		it.After(func() {
@@ -108,7 +108,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			Expect(buildpacksBuilder.BuildCall.Receives.Workspace).To(Equal(filepath.Join(workspace, "buildpacks")))
 			Expect(buildpacksBuilder.BuildCall.Receives.Name).To(Equal("some-app"))
 
-			Expect(client.ImagePullCall.Receives.Ref).To(Equal("cloudfoundry/cflinuxfs3:latest"))
+			Expect(client.ImagePullCall.Receives.Ref).To(Equal("cloudfoundry/default-stack:latest"))
 
 			Expect(networkManager.CreateCall.Receives.Name).To(Equal("switchblade-internal"))
 			Expect(networkManager.CreateCall.Receives.Driver).To(Equal("bridge"))
@@ -118,7 +118,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			Expect(client.ContainerRemoveCall.CallCount).To(Equal(0))
 
 			Expect(client.ContainerCreateCall.Receives.Config).To(Equal(&container.Config{
-				Image: "cloudfoundry/cflinuxfs3:latest",
+				Image: "cloudfoundry/default-stack:latest",
 				Cmd: []string{
 					"/tmp/lifecycle/builder",
 					"--buildArtifactsCacheDir=/tmp/cache",
@@ -132,7 +132,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				},
 				User: "vcap",
 				Env: []string{
-					"CF_STACK=cflinuxfs3",
+					"CF_STACK=default-stack",
 					"VCAP_SERVICES={}",
 				},
 				WorkingDir: "/home/vcap",
@@ -197,6 +197,24 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("WithStack", func() {
+			it("builds using that stack", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				_, err := setup.
+					WithStack("some-stack").
+					Run(ctx, logs, "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(client.ImagePullCall.Receives.Ref).To(Equal("cloudfoundry/some-stack:latest"))
+				Expect(client.ContainerCreateCall.Receives.Config.Image).To(Equal("cloudfoundry/some-stack:latest"))
+				Expect(client.ContainerCreateCall.Receives.Config.Env).To(ContainElement(
+					"CF_STACK=some-stack",
+				))
+			})
+		})
+
 		context("WithEnv", func() {
 			it("sets the environment for the container", func() {
 				ctx := gocontext.Background()
@@ -211,7 +229,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(client.ContainerCreateCall.Receives.Config.Env).To(ConsistOf([]string{
-					"CF_STACK=cflinuxfs3",
+					"CF_STACK=default-stack",
 					"OTHER_KEY=other-value",
 					"SOME_KEY=some-value",
 					"VCAP_SERVICES={}",
@@ -251,7 +269,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(client.ContainerCreateCall.Receives.Config.Env).To(ConsistOf([]string{
-					"CF_STACK=cflinuxfs3",
+					"CF_STACK=default-stack",
 					`VCAP_SERVICES={"user-provided":[{"credentials":{"other-key":"other-value"},"name":"some-app-other-service"},{"credentials":{"some-key":"some-value"},"name":"some-app-some-service"}]}`,
 				}))
 			})
