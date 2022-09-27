@@ -44,6 +44,10 @@ func testLifecycleManager(t *testing.T, context spec.G, it spec.S) {
 			executable = &fakes.Executable{}
 			executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
 				executions = append(executions, execution)
+				if strings.Contains(strings.Join(execution.Args, " "), "version") {
+					fmt.Fprint(execution.Stdout, "go version go1.19.1 darwin/amd64")
+				}
+
 				return nil
 			}
 
@@ -114,21 +118,25 @@ func testLifecycleManager(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rel).To(Equal("lifecycle.tar.gz"))
 
-			Expect(executions).To(HaveLen(4))
+			Expect(executions).To(HaveLen(5))
 			Expect(executions[0]).To(MatchFields(IgnoreExtras, Fields{
 				"Args": Equal([]string{"mod", "init", "code.cloudfoundry.org/buildpackapplifecycle"}),
 				"Dir":  Equal(filepath.Join(workspace, "repo")),
 			}))
 			Expect(executions[1]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"mod", "tidy"}),
+				"Args": Equal([]string{"version"}),
 				"Dir":  Equal(filepath.Join(workspace, "repo")),
 			}))
 			Expect(executions[2]).To(MatchFields(IgnoreExtras, Fields{
+				"Args": Equal([]string{"mod", "tidy", "-compat", "1.19"}),
+				"Dir":  Equal(filepath.Join(workspace, "repo")),
+			}))
+			Expect(executions[3]).To(MatchFields(IgnoreExtras, Fields{
 				"Args": Equal([]string{"build", "-o", filepath.Join(workspace, "output", "builder"), "./builder"}),
 				"Env":  ContainElements("GOOS=linux", "GOARCH=amd64"),
 				"Dir":  Equal(filepath.Join(workspace, "repo")),
 			}))
-			Expect(executions[3]).To(MatchFields(IgnoreExtras, Fields{
+			Expect(executions[4]).To(MatchFields(IgnoreExtras, Fields{
 				"Args": Equal([]string{"build", "-o", filepath.Join(workspace, "output", "launcher"), "./launcher"}),
 				"Env":  ContainElements("GOOS=linux", "GOARCH=amd64"),
 				"Dir":  Equal(filepath.Join(workspace, "repo")),
@@ -155,17 +163,21 @@ func testLifecycleManager(t *testing.T, context spec.G, it spec.S) {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(rel).To(Equal("lifecycle.tar.gz"))
 
-				Expect(executions).To(HaveLen(3))
+				Expect(executions).To(HaveLen(4))
 				Expect(executions[0]).To(MatchFields(IgnoreExtras, Fields{
-					"Args": Equal([]string{"mod", "tidy"}),
+					"Args": Equal([]string{"version"}),
 					"Dir":  Equal(filepath.Join(workspace, "repo")),
 				}))
 				Expect(executions[1]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"mod", "tidy", "-compat", "1.19"}),
+					"Dir":  Equal(filepath.Join(workspace, "repo")),
+				}))
+				Expect(executions[2]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"build", "-o", filepath.Join(workspace, "output", "builder"), "./builder"}),
 					"Env":  ContainElements("GOOS=linux", "GOARCH=amd64"),
 					"Dir":  Equal(filepath.Join(workspace, "repo")),
 				}))
-				Expect(executions[2]).To(MatchFields(IgnoreExtras, Fields{
+				Expect(executions[3]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"build", "-o", filepath.Join(workspace, "output", "launcher"), "./launcher"}),
 					"Env":  ContainElements("GOOS=linux", "GOARCH=amd64"),
 					"Dir":  Equal(filepath.Join(workspace, "repo")),
@@ -262,6 +274,27 @@ func testLifecycleManager(t *testing.T, context spec.G, it spec.S) {
 					Expect(err).To(MatchError(ContainSubstring("failed to initialize go module: go mod init errored")))
 					Expect(err).To(MatchError(ContainSubstring("stdout: could not initialize")))
 					Expect(err).To(MatchError(ContainSubstring("stderr: could not initialize")))
+				})
+			})
+
+			context("when fetching the go version fails", func() {
+				it.Before(func() {
+					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+						if strings.Contains(strings.Join(execution.Args, " "), "version") {
+							fmt.Fprintln(execution.Stdout, "stdout: could not version")
+							fmt.Fprintln(execution.Stderr, "stderr: could not version")
+							return errors.New("go version errored")
+						}
+
+						return nil
+					}
+				})
+
+				it("returns an error", func() {
+					_, err := manager.Build(server.URL, workspace)
+					Expect(err).To(MatchError(ContainSubstring("failed to identify go version: go version errored")))
+					Expect(err).To(MatchError(ContainSubstring("stdout: could not version")))
+					Expect(err).To(MatchError(ContainSubstring("stderr: could not version")))
 				})
 			})
 
