@@ -3,7 +3,7 @@ module github.com/cloudfoundry/switchblade
 go 1.16
 
 require (
-	github.com/docker/docker v20.10.20+incompatible
+	github.com/docker/docker v20.10.21+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/onsi/gomega v1.22.1
 	github.com/opencontainers/image-spec v1.0.3-0.20220114050600-8b9d41f48198
