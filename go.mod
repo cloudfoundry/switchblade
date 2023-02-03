@@ -3,7 +3,7 @@ module github.com/cloudfoundry/switchblade
 go 1.19
 
 require (
-	github.com/docker/docker v20.10.23+incompatible
+	github.com/docker/docker v23.0.0+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/onsi/gomega v1.26.0
 	github.com/opencontainers/image-spec v1.1.0-rc2
@@ -21,7 +21,6 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.5.0 // indirect
