@@ -7,7 +7,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/onsi/gomega v1.26.0
 	github.com/opencontainers/image-spec v1.1.0-rc2
-	github.com/paketo-buildpacks/packit/v2 v2.8.0
+	github.com/paketo-buildpacks/packit/v2 v2.8.1
 	github.com/sclevine/spec v1.4.0
 	github.com/teris-io/shortid v0.0.0-20220617161101-71ec9f2aa569
 )
