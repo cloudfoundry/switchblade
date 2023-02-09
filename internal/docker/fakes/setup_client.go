@@ -24,10 +24,10 @@ type SetupClient struct {
 			ContainerName    string
 		}
 		Returns struct {
-			ContainerCreateCreatedBody container.ContainerCreateCreatedBody
-			Error                      error
+			CreateResponse container.CreateResponse
+			Error          error
 		}
-		Stub func(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *v1.Platform, string) (container.ContainerCreateCreatedBody, error)
+		Stub func(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *v1.Platform, string) (container.CreateResponse, error)
 	}
 	ContainerInspectCall struct {
 		mutex     sync.Mutex
@@ -86,7 +86,7 @@ type SetupClient struct {
 	}
 }
 
-func (f *SetupClient) ContainerCreate(param1 context.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *v1.Platform, param6 string) (container.ContainerCreateCreatedBody, error) {
+func (f *SetupClient) ContainerCreate(param1 context.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *v1.Platform, param6 string) (container.CreateResponse, error) {
 	f.ContainerCreateCall.mutex.Lock()
 	defer f.ContainerCreateCall.mutex.Unlock()
 	f.ContainerCreateCall.CallCount++
@@ -99,7 +99,7 @@ func (f *SetupClient) ContainerCreate(param1 context.Context, param2 *container.
 	if f.ContainerCreateCall.Stub != nil {
 		return f.ContainerCreateCall.Stub(param1, param2, param3, param4, param5, param6)
 	}
-	return f.ContainerCreateCall.Returns.ContainerCreateCreatedBody, f.ContainerCreateCall.Returns.Error
+	return f.ContainerCreateCall.Returns.CreateResponse, f.ContainerCreateCall.Returns.Error
 }
 func (f *SetupClient) ContainerInspect(param1 context.Context, param2 string) (types.ContainerJSON, error) {
 	f.ContainerInspectCall.mutex.Lock()

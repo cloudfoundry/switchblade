@@ -66,7 +66,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 			client = &fakes.SetupClient{}
 			client.ImagePullCall.Returns.ReadCloser = io.NopCloser(bytes.NewBuffer([]byte("Pulling image...\n")))
-			client.ContainerCreateCall.Returns.ContainerCreateCreatedBody = container.ContainerCreateCreatedBody{ID: "some-container-id"}
+			client.ContainerCreateCall.Returns.CreateResponse = container.CreateResponse{ID: "some-container-id"}
 			client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
 				b, err := io.ReadAll(content)
 				if err != nil {

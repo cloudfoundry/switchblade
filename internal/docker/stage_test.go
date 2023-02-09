@@ -43,9 +43,9 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 
 			client = &fakes.StageClient{}
-			containerWaitOKBodyChannel := make(chan container.ContainerWaitOKBody)
+			containerWaitOKBodyChannel := make(chan container.WaitResponse)
 			close(containerWaitOKBodyChannel)
-			client.ContainerWaitCall.Returns.ContainerWaitOKBodyChannel = containerWaitOKBodyChannel
+			client.ContainerWaitCall.Returns.WaitResponseChannel = containerWaitOKBodyChannel
 			containerLogs := bytes.NewBuffer(nil)
 			containerLogsWriter := stdcopy.NewStdWriter(containerLogs, stdcopy.Stdout)
 			_, err = containerLogsWriter.Write([]byte("Fetching container logs...\n"))
@@ -142,15 +142,15 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 		context("when the container exits with a non-zero status", func() {
 			it.Before(func() {
-				containerWaitOKBodyChannel := make(chan container.ContainerWaitOKBody)
+				containerWaitOKBodyChannel := make(chan container.WaitResponse)
 				go func() {
-					containerWaitOKBodyChannel <- container.ContainerWaitOKBody{
+					containerWaitOKBodyChannel <- container.WaitResponse{
 						StatusCode: 223,
 					}
 					close(containerWaitOKBodyChannel)
 				}()
 
-				client.ContainerWaitCall.Returns.ContainerWaitOKBodyChannel = containerWaitOKBodyChannel
+				client.ContainerWaitCall.Returns.WaitResponseChannel = containerWaitOKBodyChannel
 			})
 
 			it("returns an error", func() {
@@ -216,7 +216,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			context("when the container cannot be waited on", func() {
 				it.Before(func() {
 					errChan := make(chan error)
-					waitChan := make(chan container.ContainerWaitOKBody)
+					waitChan := make(chan container.WaitResponse)
 					go func() {
 						errChan <- errors.New("could not wait on container")
 						close(errChan)
@@ -224,7 +224,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 					}()
 
 					client.ContainerWaitCall.Returns.ErrorChannel = errChan
-					client.ContainerWaitCall.Returns.ContainerWaitOKBodyChannel = waitChan
+					client.ContainerWaitCall.Returns.WaitResponseChannel = waitChan
 				})
 
 				it("returns an error", func() {

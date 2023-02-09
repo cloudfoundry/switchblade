@@ -47,7 +47,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 			Expect(os.WriteFile(filepath.Join(workspace, "droplets", "some-app.tar.gz"), []byte("droplet-content"), 0600)).To(Succeed())
 
 			client = &fakes.StartClient{}
-			client.ContainerCreateCall.Returns.ContainerCreateCreatedBody = container.ContainerCreateCreatedBody{ID: "some-container-id"}
+			client.ContainerCreateCall.Returns.CreateResponse = container.CreateResponse{ID: "some-container-id"}
 			client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
 				b, err := io.ReadAll(content)
 				if err != nil {

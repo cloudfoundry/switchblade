@@ -59,10 +59,10 @@ type StageClient struct {
 			Condition   container.WaitCondition
 		}
 		Returns struct {
-			ContainerWaitOKBodyChannel <-chan container.ContainerWaitOKBody
-			ErrorChannel               <-chan error
+			WaitResponseChannel <-chan container.WaitResponse
+			ErrorChannel        <-chan error
 		}
-		Stub func(context.Context, string, container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error)
+		Stub func(context.Context, string, container.WaitCondition) (<-chan container.WaitResponse, <-chan error)
 	}
 	CopyFromContainerCall struct {
 		mutex     sync.Mutex
@@ -117,7 +117,7 @@ func (f *StageClient) ContainerStart(param1 context.Context, param2 string, para
 	}
 	return f.ContainerStartCall.Returns.Error
 }
-func (f *StageClient) ContainerWait(param1 context.Context, param2 string, param3 container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error) {
+func (f *StageClient) ContainerWait(param1 context.Context, param2 string, param3 container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
 	f.ContainerWaitCall.mutex.Lock()
 	defer f.ContainerWaitCall.mutex.Unlock()
 	f.ContainerWaitCall.CallCount++
@@ -127,7 +127,7 @@ func (f *StageClient) ContainerWait(param1 context.Context, param2 string, param
 	if f.ContainerWaitCall.Stub != nil {
 		return f.ContainerWaitCall.Stub(param1, param2, param3)
 	}
-	return f.ContainerWaitCall.Returns.ContainerWaitOKBodyChannel, f.ContainerWaitCall.Returns.ErrorChannel
+	return f.ContainerWaitCall.Returns.WaitResponseChannel, f.ContainerWaitCall.Returns.ErrorChannel
 }
 func (f *StageClient) CopyFromContainer(param1 context.Context, param2 string, param3 string) (io.ReadCloser, types.ContainerPathStat, error) {
 	f.CopyFromContainerCall.mutex.Lock()
