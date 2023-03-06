@@ -98,7 +98,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(containerID).To(Equal("some-container-id"))
 
-			Expect(lifecycleBuilder.BuildCall.Receives.SourceURI).To(Equal("https://github.com/cloudfoundry/buildpackapplifecycle/archive/refs/heads/master.zip"))
+			Expect(lifecycleBuilder.BuildCall.Receives.SourceURI).To(Equal("https://github.com/cloudfoundry/buildpackapplifecycle/archive/refs/heads/main.zip"))
 			Expect(lifecycleBuilder.BuildCall.Receives.Workspace).To(Equal(filepath.Join(workspace, "lifecycle")))
 
 			Expect(archiver.WithPrefixCall.Receives.Prefix).To(Equal("/tmp/app"))
