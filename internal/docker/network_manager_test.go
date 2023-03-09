@@ -3,6 +3,8 @@ package docker_test
 import (
 	gocontext "context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
@@ -18,14 +20,22 @@ func testNetworkManager(t *testing.T, context spec.G, it spec.S) {
 	var (
 		Expect = NewWithT(t).Expect
 
+		tmpDir  string
 		client  *fakes.NetworkManagementClient
 		manager docker.NetworkManager
 	)
 
 	it.Before(func() {
-		client = &fakes.NetworkManagementClient{}
+		var err error
+		tmpDir, err = os.MkdirTemp("", "")
+		Expect(err).NotTo(HaveOccurred())
 
-		manager = docker.NewNetworkManager(client)
+		client = &fakes.NetworkManagementClient{}
+		manager = docker.NewNetworkManager(client, filepath.Join(tmpDir, "network.lock"))
+	})
+
+	it.After(func() {
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	context("Create", func() {

@@ -83,7 +83,7 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 			isDir = info.IsDir()
 		}
 
-		destination := filepath.Join(workspace, name, fmt.Sprintf("%x", md5.Sum([]byte(buildpack.Name))))
+		destination := filepath.Join(workspace, name, fmt.Sprintf("%x", md5.Sum([]byte(buildpack.Name)))) //nolint:gosec
 
 		if isDir {
 			err = fs.Copy(buildpack.URI, destination)

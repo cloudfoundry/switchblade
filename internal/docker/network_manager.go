@@ -3,11 +3,11 @@ package docker
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/errdefs"
+	"github.com/gofrs/flock"
 )
 
 //go:generate faux --interface NetworkManagementClient --output fakes/network_management_client.go
@@ -20,19 +20,21 @@ type NetworkManagementClient interface {
 
 type NetworkManager struct {
 	client NetworkManagementClient
-	m      *sync.Mutex
+	m      *flock.Flock
 }
 
-func NewNetworkManager(client NetworkManagementClient) NetworkManager {
+func NewNetworkManager(client NetworkManagementClient, lockfile string) NetworkManager {
 	return NetworkManager{
 		client: client,
-		m:      &sync.Mutex{},
+		m:      flock.New(lockfile),
 	}
 }
 
 func (m NetworkManager) Create(ctx context.Context, name, driver string, internal bool) error {
-	m.m.Lock()
-	defer m.m.Unlock()
+	if err := m.m.Lock(); err != nil {
+		return err
+	}
+	defer m.m.Unlock() //nolint:errcheck
 
 	networks, err := m.client.NetworkList(ctx, types.NetworkListOptions{})
 	if err != nil {
@@ -57,8 +59,10 @@ func (m NetworkManager) Create(ctx context.Context, name, driver string, interna
 }
 
 func (m NetworkManager) Connect(ctx context.Context, containerID, name string) error {
-	m.m.Lock()
-	defer m.m.Unlock()
+	if err := m.m.Lock(); err != nil {
+		return err
+	}
+	defer m.m.Unlock() //nolint:errcheck
 
 	networks, err := m.client.NetworkList(ctx, types.NetworkListOptions{})
 	if err != nil {
@@ -80,8 +84,10 @@ func (m NetworkManager) Connect(ctx context.Context, containerID, name string) e
 }
 
 func (m NetworkManager) Delete(ctx context.Context, name string) error {
-	m.m.Lock()
-	defer m.m.Unlock()
+	if err := m.m.Lock(); err != nil {
+		return err
+	}
+	defer m.m.Unlock() //nolint:errcheck
 
 	networks, err := m.client.NetworkList(ctx, types.NetworkListOptions{})
 	if err != nil {

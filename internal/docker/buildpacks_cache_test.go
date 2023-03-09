@@ -24,6 +24,7 @@ func testBuildpacksCache(t *testing.T, context spec.G, it spec.S) {
 			cache     docker.BuildpacksCache
 			server    *httptest.Server
 			workspace string
+			locks     string
 			sum       string
 		)
 
@@ -32,17 +33,21 @@ func testBuildpacksCache(t *testing.T, context spec.G, it spec.S) {
 			workspace, err = os.MkdirTemp("", "workspace")
 			Expect(err).NotTo(HaveOccurred())
 
+			locks, err = os.MkdirTemp("", "locks")
+			Expect(err).NotTo(HaveOccurred())
+
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				fmt.Fprintf(w, "some-content")
 			}))
 
 			sum = fmt.Sprintf("%x", sha256.Sum256([]byte(server.URL)))
 
-			cache = docker.NewBuildpacksCache(filepath.Join(workspace, "some-cache"))
+			cache = docker.NewBuildpacksCache(filepath.Join(workspace, "some-cache"), locks)
 		})
 
 		it.After(func() {
 			Expect(os.RemoveAll(workspace)).To(Succeed())
+			Expect(os.RemoveAll(locks)).To(Succeed())
 		})
 
 		it("downloads the buildpack into the cache", func() {

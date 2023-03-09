@@ -71,14 +71,24 @@ func NewPlatform(platformType, token, stack string) (Platform, error) {
 		}
 
 		workspace := filepath.Join(home, ".switchblade")
+		err = os.MkdirAll(workspace, os.ModePerm)
+		if err != nil {
+			return Platform{}, fmt.Errorf("failed to create workspace: %w", err)
+		}
+
+		locks := filepath.Join(workspace, "locks")
+		err = os.MkdirAll(locks, os.ModePerm)
+		if err != nil {
+			return Platform{}, fmt.Errorf("failed to create workspace/locks: %w", err)
+		}
 
 		golang := pexec.NewExecutable("go")
 		archiver := docker.NewTGZArchiver()
-		lifecycleManager := docker.NewLifecycleManager(golang, archiver)
-		buildpacksCache := docker.NewBuildpacksCache(filepath.Join(workspace, "buildpacks-cache"))
+		lifecycleManager := docker.NewLifecycleManager(golang, archiver, filepath.Join(locks, "lifecycle.lock"))
+		buildpacksCache := docker.NewBuildpacksCache(filepath.Join(workspace, "buildpacks-cache"), locks)
 		buildpacksRegistry := docker.NewBuildpacksRegistry("https://api.github.com", token)
 		buildpacksManager := docker.NewBuildpacksManager(archiver, buildpacksCache, buildpacksRegistry)
-		networkManager := docker.NewNetworkManager(client)
+		networkManager := docker.NewNetworkManager(client, filepath.Join(locks, "network.lock"))
 
 		initialize := docker.NewInitialize(buildpacksRegistry)
 		setup := docker.NewSetup(client, lifecycleManager, buildpacksManager, archiver, networkManager, workspace, stack)

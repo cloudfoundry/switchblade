@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sync"
 
+	"github.com/gofrs/flock"
 	"github.com/paketo-buildpacks/packit/v2/pexec"
 	"github.com/paketo-buildpacks/packit/v2/vacation"
 )
@@ -25,20 +25,22 @@ type Executable interface {
 type LifecycleManager struct {
 	golang   Executable
 	archiver Archiver
-	m        *sync.Mutex
+	m        *flock.Flock
 }
 
-func NewLifecycleManager(golang Executable, archiver Archiver) LifecycleManager {
+func NewLifecycleManager(golang Executable, archiver Archiver, lockfile string) LifecycleManager {
 	return LifecycleManager{
 		golang:   golang,
 		archiver: archiver,
-		m:        &sync.Mutex{},
+		m:        flock.New(lockfile),
 	}
 }
 
 func (b LifecycleManager) Build(sourceURI, workspace string) (string, error) {
-	b.m.Lock()
-	defer b.m.Unlock()
+	if err := b.m.Lock(); err != nil {
+		return "", err
+	}
+	defer b.m.Unlock() //nolint:errcheck
 
 	req, err := http.NewRequest("GET", sourceURI, nil)
 	if err != nil {
