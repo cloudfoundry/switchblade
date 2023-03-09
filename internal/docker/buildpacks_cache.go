@@ -9,16 +9,20 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/gofrs/flock"
 )
 
 type BuildpacksCache struct {
 	workspace string
+	locks     string
 	index     *sync.Map
 }
 
-func NewBuildpacksCache(workspace string) BuildpacksCache {
+func NewBuildpacksCache(workspace, locks string) BuildpacksCache {
 	return BuildpacksCache{
 		workspace: workspace,
+		locks:     locks,
 		index:     &sync.Map{},
 	}
 }
@@ -43,13 +47,16 @@ func (c BuildpacksCache) Fetch(uri string) (io.ReadCloser, error) {
 		return file, nil
 	}
 
-	path := filepath.Join(c.workspace, fmt.Sprintf("%x", sha256.Sum256([]byte(uri))))
+	sum := fmt.Sprintf("%x", sha256.Sum256([]byte(uri)))
+	path := filepath.Join(c.workspace, sum)
 
-	value, _ := c.index.LoadOrStore(path, &sync.Mutex{})
-	mutex := value.(*sync.Mutex)
+	value, _ := c.index.LoadOrStore(path, flock.New(fmt.Sprintf("%s.lock", filepath.Join(c.locks, sum))))
+	mutex := value.(*flock.Flock)
 
-	mutex.Lock()
-	defer mutex.Unlock()
+	if err := mutex.Lock(); err != nil {
+		return nil, err
+	}
+	defer mutex.Unlock() //nolint:errcheck
 
 	_, err = os.Stat(path)
 	if err == nil {
@@ -61,7 +68,7 @@ func (c BuildpacksCache) Fetch(uri string) (io.ReadCloser, error) {
 		return file, nil
 	}
 
-	resp, err := http.Get(uri)
+	resp, err := http.Get(uri) //nolint:gosec
 	if err != nil {
 		return nil, fmt.Errorf("failed to download buildpack: %w", err)
 	}

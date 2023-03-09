@@ -26,6 +26,7 @@ func testLifecycleManager(t *testing.T, context spec.G, it spec.S) {
 	context("Build", func() {
 		var (
 			workspace  string
+			tmpDir     string
 			executable *fakes.Executable
 			executions []pexec.Execution
 			server     *httptest.Server
@@ -37,6 +38,9 @@ func testLifecycleManager(t *testing.T, context spec.G, it spec.S) {
 		it.Before(func() {
 			var err error
 			workspace, err = os.MkdirTemp("", "workspace")
+			Expect(err).NotTo(HaveOccurred())
+
+			tmpDir, err = os.MkdirTemp("", "")
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(os.WriteFile(filepath.Join(workspace, "extra-file"), nil, 0600)).To(Succeed())
@@ -102,11 +106,12 @@ func testLifecycleManager(t *testing.T, context spec.G, it spec.S) {
 			archiver = &fakes.Archiver{}
 			archiver.WithPrefixCall.Returns.Archiver = archiver
 
-			manager = docker.NewLifecycleManager(executable, archiver)
+			manager = docker.NewLifecycleManager(executable, archiver, filepath.Join(tmpDir, "lifecycle.lock"))
 		})
 
 		it.After(func() {
 			Expect(os.RemoveAll(workspace)).To(Succeed())
+			Expect(os.RemoveAll(tmpDir)).To(Succeed())
 		})
 
 		it("builds the lifecycle", func() {
