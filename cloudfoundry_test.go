@@ -160,6 +160,13 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("WithStartCommand", func() {
+			it("uses that start command", func() {
+				platform.Deploy.WithStartCommand("some-start-command")
+				setup.WithStartCommandCall.Receives.Command = "some-start-command"
+			})
+		})
+
 		context("WithoutInternetAccess", func() {
 			it("ensures the app does not have internet access", func() {
 				platform.Deploy.WithoutInternetAccess()
