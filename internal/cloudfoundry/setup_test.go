@@ -532,6 +532,29 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("when the app has an start command", func() {
+			it("sets the start command", func() {
+				logs := bytes.NewBuffer(nil)
+
+				_, err := setup.
+					WithStartCommand("some-start-command some-file").
+					Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(executions).To(HaveLen(16))
+				Expect(executions[11]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{
+						"push", "some-app",
+						"-p", "/some/path/to/my/app",
+						"--no-start",
+						"-s", "default-stack",
+						"-c", "some-start-command some-file",
+					}),
+					"Env": ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the home directory cannot be created", func() {
 				it.Before(func() {

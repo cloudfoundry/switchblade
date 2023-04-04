@@ -220,6 +220,24 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("WithStartCommand", func() {
+			it.Before(func() {
+			})
+
+			it("sets the start command for the container", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				_, _, err := start.
+					WithStartCommand("some-start-command some-file").
+					Run(ctx, logs, "some-app", "not-this-command")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(client.ContainerCreateCall.Receives.Config.Cmd).To(ContainElement("some-start-command some-file"))
+				Expect(client.ContainerCreateCall.Receives.Config.Cmd).NotTo(ContainElement("not-this-command"))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when service bindings cannot be marshalled to json", func() {
 				it("returns an error", func() {
@@ -371,6 +389,16 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 
 					_, _, err := start.Run(ctx, logs, "some-app", "some-command")
 					Expect(err).To(MatchError("failed to inspect container: could not inspect container"))
+				})
+			})
+
+			context("when there is no start command", func() {
+				it("returns an error", func() {
+					ctx := gocontext.Background()
+					logs := bytes.NewBuffer(nil)
+
+					_, _, err := start.Run(ctx, logs, "some-container-id", "")
+					Expect(err).To(MatchError("error: Start command not specified"))
 				})
 			})
 		})

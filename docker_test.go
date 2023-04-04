@@ -163,6 +163,13 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("WithStartCommand", func() {
+			it("provides that start command during start", func() {
+				platform.Deploy.WithStartCommand("some-command")
+				Expect(start.WithStartCommandCall.Receives.Command).To(Equal("some-command"))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the setup phase errors", func() {
 				it.Before(func() {
