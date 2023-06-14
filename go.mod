@@ -6,8 +6,8 @@ require (
 	github.com/docker/docker v24.0.2+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/onsi/gomega v1.27.8
-	github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b
-	github.com/paketo-buildpacks/packit/v2 v2.11.0
+	github.com/opencontainers/image-spec v1.1.0-rc.3
+	github.com/paketo-buildpacks/packit/v2 v2.8.0
 	github.com/sclevine/spec v1.4.0
 	github.com/teris-io/shortid v0.0.0-20220617161101-71ec9f2aa569
 )
