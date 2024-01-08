@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/docker/docker v24.0.2+incompatible
-	github.com/docker/go-connections v0.4.0
+	github.com/docker/go-connections v0.5.0
 	github.com/onsi/gomega v1.27.8
 	github.com/opencontainers/image-spec v1.1.0-rc3
 	github.com/paketo-buildpacks/packit/v2 v2.11.0
