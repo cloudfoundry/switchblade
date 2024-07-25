@@ -12,9 +12,12 @@ import (
 )
 
 type ServeMatcher struct {
-	expected           interface{}
-	endpoint           string
-	response           string
+	expected interface{}
+	endpoint string
+	response string
+
+	basicAuthUsername  string
+	basicAuthPassword  string
 	expectedStatusCode int
 }
 
@@ -35,6 +38,12 @@ func (sm *ServeMatcher) WithExpectedStatusCode(expectedStatusCode int) *ServeMat
 	return sm
 }
 
+func (sm *ServeMatcher) WithBasicAuth(username, password string) *ServeMatcher {
+	sm.basicAuthUsername = username
+	sm.basicAuthPassword = password
+	return sm
+}
+
 func (sm *ServeMatcher) Match(actual interface{}) (success bool, err error) {
 	deployment, ok := actual.(switchblade.Deployment)
 	if !ok {
@@ -48,7 +57,18 @@ func (sm *ServeMatcher) Match(actual interface{}) (success bool, err error) {
 
 	uri.Path = sm.endpoint
 
-	response, err := http.Get(uri.String())
+	req, err := http.NewRequest("GET", uri.String(), nil)
+	if err != nil {
+		// This untested as it is too hard to force this specific error.
+		// We use a known good HTTP Method; the uri is already escaped; and the body is always nil
+		return false, err
+	}
+
+	if sm.basicAuthUsername != "" && sm.basicAuthPassword != "" {
+		req.SetBasicAuth(sm.basicAuthUsername, sm.basicAuthPassword)
+	}
+
+	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false, err
 	}
