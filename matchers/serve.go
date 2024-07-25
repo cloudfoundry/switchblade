@@ -12,19 +12,26 @@ import (
 )
 
 type ServeMatcher struct {
-	expected interface{}
-	endpoint string
-	response string
+	expected           interface{}
+	endpoint           string
+	response           string
+	expectedStatusCode int
 }
 
 func Serve(expected interface{}) *ServeMatcher {
 	return &ServeMatcher{
-		expected: expected,
+		expected:           expected,
+		expectedStatusCode: http.StatusOK,
 	}
 }
 
 func (sm *ServeMatcher) WithEndpoint(endpoint string) *ServeMatcher {
 	sm.endpoint = endpoint
+	return sm
+}
+
+func (sm *ServeMatcher) WithExpectedStatusCode(expectedStatusCode int) *ServeMatcher {
+	sm.expectedStatusCode = expectedStatusCode
 	return sm
 }
 
@@ -54,7 +61,7 @@ func (sm *ServeMatcher) Match(actual interface{}) (success bool, err error) {
 
 	sm.response = string(content)
 
-	if response.StatusCode != http.StatusOK {
+	if response.StatusCode != sm.expectedStatusCode {
 		return false, nil
 	}
 
