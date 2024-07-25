@@ -107,6 +107,18 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("the response status code matches a custom expected code", func() {
+			it.Before(func() {
+				matcher = matcher.WithEndpoint("/teapot").WithExpectedStatusCode(http.StatusTeapot)
+			})
+
+			it("returns true", func() {
+				result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the matcher is not given a deployment", func() {
 				it("returns an error", func() {
