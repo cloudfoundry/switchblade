@@ -37,6 +37,14 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 			case "/teapot":
 				w.WriteHeader(http.StatusTeapot)
 				fmt.Fprint(w, "some string")
+			case "/basic-auth":
+				username, password, ok := req.BasicAuth()
+				if !ok || username != "username" || password != "password" {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, "basic auth ok")
 			default:
 				fmt.Fprintln(w, "unknown path")
 				t.Fatalf("unknown path: %s", req.URL.Path)
@@ -116,6 +124,44 @@ func testServe(t *testing.T, context spec.G, it spec.S) {
 				result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(BeTrue())
+			})
+		})
+
+		context("basic auth", func() {
+			context("basic auth is successful", func() {
+				it.Before(func() {
+					matcher = matchers.Serve("basic auth ok").WithEndpoint("/basic-auth").WithBasicAuth("username", "password")
+				})
+
+				it("returns true", func() {
+					result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result).To(BeTrue())
+				})
+			})
+
+			context("basic auth is unsuccessful (wrong password)", func() {
+				it.Before(func() {
+					matcher = matcher.WithEndpoint("/basic-auth").WithBasicAuth("username", "wrong-password")
+				})
+
+				it("returns false", func() {
+					result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result).To(BeFalse())
+				})
+			})
+
+			context("basic auth is unsuccessful (missing)", func() {
+				it.Before(func() {
+					matcher = matcher.WithEndpoint("/basic-auth")
+				})
+
+				it("returns false", func() {
+					result, err := matcher.Match(switchblade.Deployment{ExternalURL: server.URL})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result).To(BeFalse())
+				})
 			})
 		})
 
