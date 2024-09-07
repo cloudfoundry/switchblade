@@ -555,6 +555,43 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("when the app has a manifest", func() {
+			var tmpappdir string
+			var err error
+
+			it.Before(func() {
+				tmpappdir, err = os.MkdirTemp("", "tmpappdir")
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = os.Create(filepath.Join(tmpappdir, "manifest.yml"))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			it.After(func() {
+				Expect(os.RemoveAll(tmpappdir)).To(Succeed())
+			})
+
+			it("passes manifest to the push cmd", func() {
+				logs := bytes.NewBuffer(nil)
+
+				_, err := setup.
+					Run(logs, filepath.Join(workspace, "some-home"), "some-app", tmpappdir)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(executions).To(HaveLen(16))
+				Expect(executions[11]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{
+						"push", "some-app",
+						"-p", tmpappdir,
+						"--no-start",
+						"-s", "default-stack",
+						"-f", filepath.Join(tmpappdir, "manifest.yml"),
+					}),
+					"Env": ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
+				}))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the home directory cannot be created", func() {
 				it.Before(func() {
