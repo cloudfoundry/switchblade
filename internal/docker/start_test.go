@@ -101,7 +101,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 
 			externalURL, internalURL, err := start.Run(ctx, logs, "some-app", "some-command")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(externalURL).To(Equal("http://0.0.0.0:12345"))
+			Expect(externalURL).To(Equal("http://localhost:12345"))
 			Expect(internalURL).To(Equal("http://172.19.0.2:8080"))
 
 			Expect(client.ContainerCreateCall.Receives.ContainerName).To(Equal("some-app"))
