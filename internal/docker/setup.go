@@ -118,7 +118,7 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 		return "", fmt.Errorf("failed to copy image pull logs: %w", err)
 	}
 
-	err = s.networks.Create(ctx, InternalNetworkName, "bridge", true)
+	err = s.networks.Create(ctx, fmt.Sprintf("%s-%s", InternalNetworkName, name), "bridge", true)
 	if err != nil {
 		return "", fmt.Errorf("failed to create network: %w", err)
 	}
@@ -190,7 +190,7 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 	}
 
 	hostConfig := container.HostConfig{
-		NetworkMode: container.NetworkMode(InternalNetworkName),
+		NetworkMode: container.NetworkMode(fmt.Sprintf("%s-%s", InternalNetworkName, name)),
 	}
 
 	resp, err := s.client.ContainerCreate(ctx, &containerConfig, &hostConfig, nil, nil, name)

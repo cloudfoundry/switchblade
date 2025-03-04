@@ -45,7 +45,7 @@ func (t Teardown) Run(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to remove container: %w", err)
 	}
 
-	err = t.networks.Delete(ctx, InternalNetworkName)
+	err = t.networks.Delete(ctx, fmt.Sprintf("%s-%s", InternalNetworkName, name))
 	if err != nil {
 		return fmt.Errorf("failed to delete network: %w", err)
 	}

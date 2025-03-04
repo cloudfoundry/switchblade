@@ -122,7 +122,7 @@ func (s Start) Run(ctx context.Context, logs io.Writer, name, command string) (s
 
 	hostConfig := container.HostConfig{
 		PublishAllPorts: true,
-		NetworkMode:     container.NetworkMode(InternalNetworkName),
+		NetworkMode:     container.NetworkMode(fmt.Sprintf("%s-%s", InternalNetworkName, name)),
 	}
 
 	resp, err := s.client.ContainerCreate(ctx, &containerConfig, &hostConfig, nil, nil, name)
@@ -178,7 +178,7 @@ func (s Start) Run(ctx context.Context, logs io.Writer, name, command string) (s
 	}
 
 	var internalURL string
-	network, ok := container.NetworkSettings.Networks[InternalNetworkName]
+	network, ok := container.NetworkSettings.Networks[fmt.Sprintf("%s-%s", InternalNetworkName, name)]
 	if ok {
 		internalURL = fmt.Sprintf("http://%s:8080", network.IPAddress)
 	}

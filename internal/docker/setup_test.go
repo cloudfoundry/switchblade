@@ -110,7 +110,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 			Expect(client.ImagePullCall.Receives.Ref).To(Equal("cloudfoundry/default-stack:latest"))
 
-			Expect(networkManager.CreateCall.Receives.Name).To(Equal("switchblade-internal"))
+			Expect(networkManager.CreateCall.Receives.Name).To(Equal("switchblade-internal-some-app"))
 			Expect(networkManager.CreateCall.Receives.Driver).To(Equal("bridge"))
 			Expect(networkManager.CreateCall.Receives.Internal).To(BeTrue())
 
@@ -138,7 +138,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				WorkingDir: "/home/vcap",
 			}))
 			Expect(client.ContainerCreateCall.Receives.HostConfig).To(Equal(&container.HostConfig{
-				NetworkMode: container.NetworkMode("switchblade-internal"),
+				NetworkMode: container.NetworkMode("switchblade-internal-some-app"),
 			}))
 			Expect(client.ContainerCreateCall.Receives.ContainerName).To(Equal("some-app"))
 
