@@ -78,7 +78,7 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 				Force: true,
 			}))
 
-			Expect(networkManager.DeleteCall.Receives.Name).To(Equal("switchblade-internal"))
+			Expect(networkManager.DeleteCall.Receives.Name).To(Equal("switchblade-internal-some-app"))
 
 			Expect(filepath.Join(workspace, "droplets", "some-app.tar.gz")).NotTo(BeAnExistingFile())
 			Expect(filepath.Join(workspace, "source", "some-app.tar.gz")).NotTo(BeAnExistingFile())
