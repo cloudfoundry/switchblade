@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-type TeardownNetworkManager struct {
+type DeinitializeNetworkManager struct {
 	DeleteCall struct {
 		mutex     sync.Mutex
 		CallCount int
@@ -20,7 +20,7 @@ type TeardownNetworkManager struct {
 	}
 }
 
-func (f *TeardownNetworkManager) Delete(param1 context.Context, param2 string) error {
+func (f *DeinitializeNetworkManager) Delete(param1 context.Context, param2 string) error {
 	f.DeleteCall.mutex.Lock()
 	defer f.DeleteCall.mutex.Unlock()
 	f.DeleteCall.CallCount++

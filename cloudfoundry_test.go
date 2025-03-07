@@ -21,17 +21,19 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 	var (
 		Expect = NewWithT(t).Expect
 
-		initialize *fakes.CloudFoundryInitializePhase
-		setup      *fakes.CloudFoundrySetupPhase
-		stage      *fakes.CloudFoundryStagePhase
-		teardown   *fakes.CloudFoundryTeardownPhase
-		workspace  string
+		initialize   *fakes.CloudFoundryInitializePhase
+		deinitialize *fakes.CloudFoundryDeinitializePhase
+		setup        *fakes.CloudFoundrySetupPhase
+		stage        *fakes.CloudFoundryStagePhase
+		teardown     *fakes.CloudFoundryTeardownPhase
+		workspace    string
 
 		platform switchblade.Platform
 	)
 
 	it.Before(func() {
 		initialize = &fakes.CloudFoundryInitializePhase{}
+		deinitialize = &fakes.CloudFoundryDeinitializePhase{}
 		setup = &fakes.CloudFoundrySetupPhase{}
 		stage = &fakes.CloudFoundryStagePhase{}
 		teardown = &fakes.CloudFoundryTeardownPhase{}
@@ -40,7 +42,7 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 		workspace, err = os.MkdirTemp("", "workspace")
 		Expect(err).NotTo(HaveOccurred())
 
-		platform = switchblade.NewCloudFoundry(initialize, setup, stage, teardown, workspace)
+		platform = switchblade.NewCloudFoundry(initialize, deinitialize, setup, stage, teardown, workspace)
 	})
 
 	it.After(func() {
@@ -89,6 +91,27 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 					},
 				)
 				Expect(err).To(MatchError("failed to initialize"))
+			})
+		})
+	})
+
+	context("Deinitialize", func() {
+		it("deinitializes the buildpacks", func() {
+			err := platform.Deinitialize()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deinitialize.RunCall.CallCount).To(Equal(1))
+		})
+
+		context("failure cases", func() {
+			context("the deinitialize phase fails", func() {
+				it.Before(func() {
+					deinitialize.RunCall.Returns.Error = errors.New("failed to deinitialize")
+				})
+
+				it("returns an error", func() {
+					err := platform.Deinitialize()
+					Expect(err).To(MatchError("failed to deinitialize"))
+				})
 			})
 		})
 	})

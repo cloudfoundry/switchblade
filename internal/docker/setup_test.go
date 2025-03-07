@@ -110,10 +110,6 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 			Expect(client.ImagePullCall.Receives.Ref).To(Equal("cloudfoundry/default-stack:latest"))
 
-			Expect(networkManager.CreateCall.Receives.Name).To(Equal("switchblade-internal-some-app"))
-			Expect(networkManager.CreateCall.Receives.Driver).To(Equal("bridge"))
-			Expect(networkManager.CreateCall.Receives.Internal).To(BeTrue())
-
 			Expect(client.ContainerInspectCall.Receives.ContainerID).To(Equal("some-app"))
 			Expect(client.ContainerRemoveCall.CallCount).To(Equal(0))
 
@@ -137,9 +133,11 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				},
 				WorkingDir: "/home/vcap",
 			}))
+
 			Expect(client.ContainerCreateCall.Receives.HostConfig).To(Equal(&container.HostConfig{
-				NetworkMode: container.NetworkMode("switchblade-internal-some-app"),
+				NetworkMode: container.NetworkMode("switchblade-internal"),
 			}))
+
 			Expect(client.ContainerCreateCall.Receives.ContainerName).To(Equal("some-app"))
 
 			Expect(networkManager.ConnectCall.Receives.ContainerID).To(Equal("some-container-id"))
@@ -402,20 +400,6 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
 					Expect(err).To(MatchError("failed to copy image pull logs: could not read logs"))
-				})
-			})
-
-			context("when the network cannot be created", func() {
-				it.Before(func() {
-					networkManager.CreateCall.Returns.Error = errors.New("could not create network")
-				})
-
-				it("returns an error", func() {
-					ctx := gocontext.Background()
-					logs := bytes.NewBuffer(nil)
-
-					_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
-					Expect(err).To(MatchError("failed to create network: could not create network"))
 				})
 			})
 

@@ -15,6 +15,7 @@ func TestDocker(t *testing.T) {
 	suite("BuildpacksCache", testBuildpacksCache)
 	suite("BuildpacksManager", testBuildpacksManager)
 	suite("BuildpacksRegistry", testBuildpacksRegistry)
+	suite("Deinitialize", testDeinitialize)
 	suite("Initialize", testInitialize)
 	suite("LifecycleManager", testLifecycleManager)
 	suite("NetworkManager", testNetworkManager)
