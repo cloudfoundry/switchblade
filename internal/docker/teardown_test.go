@@ -23,15 +23,12 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 		var (
 			teardown docker.Teardown
 
-			client         *fakes.TeardownClient
-			networkManager *fakes.TeardownNetworkManager
-			workspace      string
+			client    *fakes.TeardownClient
+			workspace string
 		)
 
 		it.Before(func() {
 			client = &fakes.TeardownClient{}
-
-			networkManager = &fakes.TeardownNetworkManager{}
 
 			var err error
 			workspace, err = os.MkdirTemp("", "workspace")
@@ -59,7 +56,7 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 			err = os.WriteFile(filepath.Join(workspace, "build-cache", "some-app.tar.gz"), []byte("some-build-cache-contents"), 0600)
 			Expect(err).NotTo(HaveOccurred())
 
-			teardown = docker.NewTeardown(client, networkManager, workspace)
+			teardown = docker.NewTeardown(client, workspace)
 		})
 
 		it.After(func() {
@@ -77,8 +74,6 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 			Expect(client.ContainerRemoveCall.Receives.Options).To(Equal(types.ContainerRemoveOptions{
 				Force: true,
 			}))
-
-			Expect(networkManager.DeleteCall.Receives.Name).To(Equal("switchblade-internal-some-app"))
 
 			Expect(filepath.Join(workspace, "droplets", "some-app.tar.gz")).NotTo(BeAnExistingFile())
 			Expect(filepath.Join(workspace, "source", "some-app.tar.gz")).NotTo(BeAnExistingFile())
@@ -177,19 +172,6 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 
 					err := teardown.Run(ctx, "some-app")
 					Expect(err).To(MatchError("failed to remove container: could not remove container"))
-				})
-			})
-
-			context("when the network cannot be delete", func() {
-				it.Before(func() {
-					networkManager.DeleteCall.Returns.Error = errors.New("could not delete network")
-				})
-
-				it("returns an error", func() {
-					ctx := gocontext.Background()
-
-					err := teardown.Run(ctx, "some-app")
-					Expect(err).To(MatchError("failed to delete network: could not delete network"))
 				})
 			})
 		})

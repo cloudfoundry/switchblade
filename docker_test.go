@@ -22,21 +22,23 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 
 		platform switchblade.Platform
 
-		initialize *fakes.DockerInitializePhase
-		setup      *fakes.DockerSetupPhase
-		stage      *fakes.DockerStagePhase
-		start      *fakes.DockerStartPhase
-		teardown   *fakes.DockerTeardownPhase
+		initialize   *fakes.DockerInitializePhase
+		deinitialize *fakes.DockerDeinitializePhase
+		setup        *fakes.DockerSetupPhase
+		stage        *fakes.DockerStagePhase
+		start        *fakes.DockerStartPhase
+		teardown     *fakes.DockerTeardownPhase
 	)
 
 	it.Before(func() {
 		initialize = &fakes.DockerInitializePhase{}
+		deinitialize = &fakes.DockerDeinitializePhase{}
 		setup = &fakes.DockerSetupPhase{}
 		stage = &fakes.DockerStagePhase{}
 		start = &fakes.DockerStartPhase{}
 		teardown = &fakes.DockerTeardownPhase{}
 
-		platform = switchblade.NewDocker(initialize, setup, stage, start, teardown)
+		platform = switchblade.NewDocker(initialize, deinitialize, setup, stage, start, teardown)
 	})
 
 	context("Initialize", func() {
@@ -62,6 +64,51 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 					URI:  "other-buildpack-uri",
 				},
 			}))
+		})
+
+		context("failure cases", func() {
+			context("the initialize phase fails", func() {
+				it.Before(func() {
+					initialize.RunCall.Returns.Error = errors.New("failed to initialize")
+				})
+
+				it("returns an error", func() {
+					err := platform.Initialize(
+						switchblade.Buildpack{
+							Name: "some-buildpack-name",
+							URI:  "some-buildpack-uri",
+						},
+						switchblade.Buildpack{
+							Name: "other-buildpack-name",
+							URI:  "other-buildpack-uri",
+						},
+					)
+					Expect(err).To(MatchError("failed to initialize"))
+				})
+			})
+
+		})
+	})
+
+	context("Deinitialize", func() {
+		it("deinitializes the buildpacks", func() {
+			err := platform.Deinitialize()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deinitialize.RunCall.CallCount).To(Equal(1))
+		})
+
+		context("failure cases", func() {
+			context("the deinitialize phase fails", func() {
+				it.Before(func() {
+					deinitialize.RunCall.Returns.Error = errors.New("failed to deinitialize")
+				})
+
+				it("returns an error", func() {
+					err := platform.Deinitialize()
+					Expect(err).To(MatchError("failed to deinitialize"))
+				})
+			})
+
 		})
 	})
 

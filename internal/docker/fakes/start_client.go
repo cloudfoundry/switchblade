@@ -8,7 +8,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type StartClient struct {
@@ -20,14 +21,14 @@ type StartClient struct {
 			Config           *container.Config
 			HostConfig       *container.HostConfig
 			NetworkingConfig *network.NetworkingConfig
-			Platform         *v1.Platform
+			Platform         *specs.Platform
 			ContainerName    string
 		}
 		Returns struct {
 			CreateResponse container.CreateResponse
 			Error          error
 		}
-		Stub func(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *v1.Platform, string) (container.CreateResponse, error)
+		Stub func(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *specs.Platform, string) (container.CreateResponse, error)
 	}
 	ContainerInspectCall struct {
 		mutex     sync.Mutex
@@ -72,7 +73,7 @@ type StartClient struct {
 	}
 }
 
-func (f *StartClient) ContainerCreate(param1 context.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *v1.Platform, param6 string) (container.CreateResponse, error) {
+func (f *StartClient) ContainerCreate(param1 context.Context, param2 *container.Config, param3 *container.HostConfig, param4 *network.NetworkingConfig, param5 *specs.Platform, param6 string) (container.CreateResponse, error) {
 	f.ContainerCreateCall.mutex.Lock()
 	defer f.ContainerCreateCall.mutex.Unlock()
 	f.ContainerCreateCall.CallCount++

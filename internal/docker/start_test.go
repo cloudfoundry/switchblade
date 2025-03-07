@@ -79,7 +79,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 						},
 					},
 					Networks: map[string]*network.EndpointSettings{
-						"switchblade-internal-some-app": {
+						"switchblade-internal": {
 							IPAddress: "172.19.0.2",
 						},
 					},
@@ -127,9 +127,10 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 					"8080/tcp": struct{}{},
 				},
 			}))
+
 			Expect(client.ContainerCreateCall.Receives.HostConfig).To(Equal(&container.HostConfig{
 				PublishAllPorts: true,
-				NetworkMode:     container.NetworkMode("switchblade-internal-some-app"),
+				NetworkMode:     container.NetworkMode("switchblade-internal"),
 			}))
 
 			Expect(networkManager.ConnectCall.Receives.ContainerID).To(Equal("some-container-id"))

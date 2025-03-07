@@ -13,16 +13,20 @@ type DockerInitializePhase struct {
 		Receives  struct {
 			BuildpackSlice []docker.Buildpack
 		}
-		Stub func([]docker.Buildpack)
+		Returns struct {
+			Error error
+		}
+		Stub func([]docker.Buildpack) error
 	}
 }
 
-func (f *DockerInitializePhase) Run(param1 []docker.Buildpack) {
+func (f *DockerInitializePhase) Run(param1 []docker.Buildpack) error {
 	f.RunCall.mutex.Lock()
 	defer f.RunCall.mutex.Unlock()
 	f.RunCall.CallCount++
 	f.RunCall.Receives.BuildpackSlice = param1
 	if f.RunCall.Stub != nil {
-		f.RunCall.Stub(param1)
+		return f.RunCall.Stub(param1)
 	}
+	return f.RunCall.Returns.Error
 }
