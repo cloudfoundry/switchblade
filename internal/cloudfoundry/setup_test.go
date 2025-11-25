@@ -63,10 +63,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 						{ "protocol": "http", "port": null },
 						{ "protocol": "tcp", "port": 5555 }
 					] }`)
-				case strings.HasPrefix(command, "curl /v2/security_groups"):
+				case strings.HasPrefix(command, "curl /v3/security_groups"):
 					fmt.Fprintln(execution.Stdout, `{ "resources": [
-						{ "entity": { "name": "some-default-network" } },
-						{ "entity": { "name": "switchblade-network" } }
+						{ "name": "some-default-network" },
+						{ "name": "switchblade-network" }
 					] }`)
 
 				case strings.HasPrefix(command, "create-org"):
@@ -178,7 +178,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[9]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"curl", "/v2/security_groups"}),
+				"Args": Equal([]string{"curl", "/v3/security_groups"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[10]).To(MatchFields(IgnoreExtras, Fields{
@@ -437,10 +437,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 							{ "protocol": "http", "port": null },
 							{ "protocol": "tcp", "port": 5555 }
 						] }`)
-					case strings.HasPrefix(command, "curl /v2/security_groups"):
+					case strings.HasPrefix(command, "curl /v3/security_groups"):
 						fmt.Fprintln(execution.Stdout, `{ "resources": [
-							{ "entity": { "name": "some-default-network" } },
-							{ "entity": { "name": "switchblade-network" } }
+							{ "name": "some-default-network"},
+							{ "name": "switchblade-network" }
 						] }`)
 					}
 
@@ -499,10 +499,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 							{ "protocol": "http", "port": null },
 							{ "protocol": "tcp", "port": 5555 }
 						] }`)
-					case strings.HasPrefix(command, "curl /v2/security_groups"):
+					case strings.HasPrefix(command, "curl /v3/security_groups"):
 						fmt.Fprintln(execution.Stdout, `{ "resources": [
-							{ "entity": { "name": "some-default-network" } },
-							{ "entity": { "name": "switchblade-network" } }
+							{ "name": "some-default-network" },
+							{ "name": "switchblade-network" }
 						] }`)
 					}
 
@@ -1014,7 +1014,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "name": "some-router-group", "type": "tcp" }
 							]`)
 
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{"error": "could not list security groups"}`)
 							return errors.New("exit status 1")
 						}
@@ -1026,7 +1026,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 					logs := bytes.NewBuffer(nil)
 
 					_, err := setup.Run(logs, filepath.Join(workspace, "some-home"), "some-app", "/some/path/to/my/app")
-					Expect(err).To(MatchError(ContainSubstring("failed to curl /v2/security_groups: exit status 1")))
+					Expect(err).To(MatchError(ContainSubstring("failed to curl /v3/security_groups: exit status 1")))
 					Expect(err).To(MatchError(ContainSubstring(`{"error": "could not list security groups"}`)))
 
 					Expect(logs).To(ContainSubstring(`{"error": "could not list security groups"}`))
@@ -1051,7 +1051,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "name": "some-router-group", "type": "tcp" }
 							]`)
 
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, "%%%")
 						}
 						return nil
@@ -1084,10 +1084,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "name": "other-router-group", "type": "http" },
 								{ "name": "some-router-group", "type": "tcp" }
 							]`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network" },
+								{ "name": "switchblade-network" }
 							] }`)
 
 						case strings.HasPrefix(command, "update-security-group"):
@@ -1126,10 +1126,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "name": "other-router-group", "type": "http" },
 								{ "name": "some-router-group", "type": "tcp" }
 							]`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network"},
+								{ "name": "switchblade-network"}
 							] }`)
 
 						case strings.HasPrefix(command, "push"):
@@ -1168,10 +1168,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "name": "other-router-group", "type": "http" },
 								{ "name": "some-router-group", "type": "tcp" }
 							]`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network"},
+								{ "name": "switchblade-network"}
 							] }`)
 
 						case strings.HasPrefix(command, "update-quota"):
@@ -1210,10 +1210,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "name": "other-router-group", "type": "http" },
 								{ "name": "some-router-group", "type": "tcp" }
 							]`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network"},
+								{ "name": "switchblade-network"}
 							] }`)
 
 						case strings.HasPrefix(command, "map-route"):
@@ -1252,10 +1252,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "name": "other-router-group", "type": "http" },
 								{ "name": "some-router-group", "type": "tcp" }
 							]`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network"},
+								{ "name": "switchblade-network"}
 							] }`)
 
 						case strings.HasPrefix(command, "curl /v3/spaces"):
@@ -1294,10 +1294,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "name": "other-router-group", "type": "http" },
 								{ "name": "some-router-group", "type": "tcp" }
 							]`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network" },
+								{ "name": "switchblade-network" }
 							] }`)
 
 						case strings.HasPrefix(command, "curl /v3/spaces"):
@@ -1340,10 +1340,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 									{ "name": "some-app", "guid": "some-space-guid" }
 								]
 							}`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network"},
+								{ "name": "switchblade-network"}
 							] }`)
 
 						case strings.HasPrefix(command, "curl /v3/routes"):
@@ -1389,10 +1389,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 									{ "name": "some-app", "guid": "some-space-guid" }
 								]
 							}`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network"},
+								{ "name": "switchblade-network"}
 							] }`)
 
 						case strings.HasPrefix(command, "curl /v3/routes"):
@@ -1440,10 +1440,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "protocol": "http", "port": null },
 								{ "protocol": "tcp", "port": 5555 }
 							] }`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network" },
+								{ "name": "switchblade-network" }
 							] }`)
 
 						case strings.HasPrefix(command, "set-env"):
@@ -1512,10 +1512,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "protocol": "http", "port": null },
 								{ "protocol": "tcp", "port": 5555 }
 							] }`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network" },
+								{ "name": "switchblade-network" }
 							] }`)
 
 						case strings.HasPrefix(command, "create-user-provided-service"):
@@ -1570,10 +1570,10 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 								{ "protocol": "http", "port": null },
 								{ "protocol": "tcp", "port": 5555 }
 							] }`)
-						case strings.HasPrefix(command, "curl /v2/security_groups"):
+						case strings.HasPrefix(command, "curl /v3/security_groups"):
 							fmt.Fprintln(execution.Stdout, `{ "resources": [
-								{ "entity": { "name": "some-default-network" } },
-								{ "entity": { "name": "switchblade-network" } }
+								{ "name": "some-default-network" },
+								{ "name": "switchblade-network" }
 							] }`)
 
 						case strings.HasPrefix(command, "bind-service"):
