@@ -170,7 +170,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[7]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"bind-security-group", "some-app", "some-app", "some-app", "--lifecycle", "staging"}),
+				"Args": Equal([]string{"bind-security-group", "some-app", "some-app", "--space", "some-app", "--lifecycle", "staging"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[8]).To(MatchFields(IgnoreExtras, Fields{
