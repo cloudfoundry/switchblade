@@ -16,13 +16,13 @@ type StageClient struct {
 		Receives  struct {
 			Ctx       context.Context
 			Container string
-			Options   types.ContainerLogsOptions
+			Options   container.LogsOptions
 		}
 		Returns struct {
 			ReadCloser io.ReadCloser
 			Error      error
 		}
-		Stub func(context.Context, string, types.ContainerLogsOptions) (io.ReadCloser, error)
+		Stub func(context.Context, string, container.LogsOptions) (io.ReadCloser, error)
 	}
 	ContainerRemoveCall struct {
 		mutex     sync.Mutex
@@ -30,12 +30,12 @@ type StageClient struct {
 		Receives  struct {
 			Ctx         context.Context
 			ContainerID string
-			Options     types.ContainerRemoveOptions
+			Options     container.RemoveOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, types.ContainerRemoveOptions) error
+		Stub func(context.Context, string, container.RemoveOptions) error
 	}
 	ContainerStartCall struct {
 		mutex     sync.Mutex
@@ -43,12 +43,12 @@ type StageClient struct {
 		Receives  struct {
 			Ctx         context.Context
 			ContainerID string
-			Options     types.ContainerStartOptions
+			Options     container.StartOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, types.ContainerStartOptions) error
+		Stub func(context.Context, string, container.StartOptions) error
 	}
 	ContainerWaitCall struct {
 		mutex     sync.Mutex
@@ -81,7 +81,7 @@ type StageClient struct {
 	}
 }
 
-func (f *StageClient) ContainerLogs(param1 context.Context, param2 string, param3 types.ContainerLogsOptions) (io.ReadCloser, error) {
+func (f *StageClient) ContainerLogs(param1 context.Context, param2 string, param3 container.LogsOptions) (io.ReadCloser, error) {
 	f.ContainerLogsCall.mutex.Lock()
 	defer f.ContainerLogsCall.mutex.Unlock()
 	f.ContainerLogsCall.CallCount++
@@ -93,7 +93,7 @@ func (f *StageClient) ContainerLogs(param1 context.Context, param2 string, param
 	}
 	return f.ContainerLogsCall.Returns.ReadCloser, f.ContainerLogsCall.Returns.Error
 }
-func (f *StageClient) ContainerRemove(param1 context.Context, param2 string, param3 types.ContainerRemoveOptions) error {
+func (f *StageClient) ContainerRemove(param1 context.Context, param2 string, param3 container.RemoveOptions) error {
 	f.ContainerRemoveCall.mutex.Lock()
 	defer f.ContainerRemoveCall.mutex.Unlock()
 	f.ContainerRemoveCall.CallCount++
@@ -105,7 +105,7 @@ func (f *StageClient) ContainerRemove(param1 context.Context, param2 string, par
 	}
 	return f.ContainerRemoveCall.Returns.Error
 }
-func (f *StageClient) ContainerStart(param1 context.Context, param2 string, param3 types.ContainerStartOptions) error {
+func (f *StageClient) ContainerStart(param1 context.Context, param2 string, param3 container.StartOptions) error {
 	f.ContainerStartCall.mutex.Lock()
 	defer f.ContainerStartCall.mutex.Unlock()
 	f.ContainerStartCall.CallCount++

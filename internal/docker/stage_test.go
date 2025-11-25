@@ -107,7 +107,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			Expect(client.ContainerWaitCall.Receives.Condition).To(Equal(container.WaitConditionNotRunning))
 
 			Expect(client.ContainerLogsCall.Receives.Container).To(Equal("some-container-id"))
-			Expect(client.ContainerLogsCall.Receives.Options).To(Equal(types.ContainerLogsOptions{
+			Expect(client.ContainerLogsCall.Receives.Options).To(Equal(container.LogsOptions{
 				ShowStdout: true,
 				ShowStderr: true,
 			}))
@@ -121,7 +121,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			Expect(copyFromContainerInvocations[2].SrcPath).To(Equal("/tmp/result.json"))
 
 			Expect(client.ContainerRemoveCall.Receives.ContainerID).To(Equal("some-container-id"))
-			Expect(client.ContainerRemoveCall.Receives.Options).To(Equal(types.ContainerRemoveOptions{Force: true}))
+			Expect(client.ContainerRemoveCall.Receives.Options).To(Equal(container.RemoveOptions{Force: true}))
 
 			Expect(logs).To(ContainLines("Fetching container logs..."))
 
@@ -166,13 +166,13 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 				Expect(client.ContainerWaitCall.Receives.Condition).To(Equal(container.WaitConditionNotRunning))
 
 				Expect(client.ContainerLogsCall.Receives.Container).To(Equal("some-container-id"))
-				Expect(client.ContainerLogsCall.Receives.Options).To(Equal(types.ContainerLogsOptions{
+				Expect(client.ContainerLogsCall.Receives.Options).To(Equal(container.LogsOptions{
 					ShowStdout: true,
 					ShowStderr: true,
 				}))
 
 				Expect(client.ContainerRemoveCall.Receives.ContainerID).To(Equal("some-container-id"))
-				Expect(client.ContainerRemoveCall.Receives.Options).To(Equal(types.ContainerRemoveOptions{Force: true}))
+				Expect(client.ContainerRemoveCall.Receives.Options).To(Equal(container.RemoveOptions{Force: true}))
 
 				Expect(copyFromContainerInvocations).To(HaveLen(0))
 

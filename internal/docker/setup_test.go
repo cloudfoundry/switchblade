@@ -67,7 +67,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 			client = &fakes.SetupClient{}
 			client.ImagePullCall.Returns.ReadCloser = io.NopCloser(bytes.NewBuffer([]byte("Pulling image...\n")))
 			client.ContainerCreateCall.Returns.CreateResponse = container.CreateResponse{ID: "some-container-id"}
-			client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
+			client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options container.CopyToContainerOptions) error {
 				b, err := io.ReadAll(content)
 				if err != nil {
 					return err
@@ -509,7 +509,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the lifecycle cannot be copied to the container", func() {
 				it.Before(func() {
-					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
+					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options container.CopyToContainerOptions) error {
 						b, err := io.ReadAll(content)
 						if err != nil {
 							return err

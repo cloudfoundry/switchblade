@@ -48,7 +48,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 
 			client = &fakes.StartClient{}
 			client.ContainerCreateCall.Returns.CreateResponse = container.CreateResponse{ID: "some-container-id"}
-			client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
+			client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options container.CopyToContainerOptions) error {
 				b, err := io.ReadAll(content)
 				if err != nil {
 					return err
@@ -302,7 +302,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the lifecycle cannot be copied to the container", func() {
 				it.Before(func() {
-					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
+					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options container.CopyToContainerOptions) error {
 						b, err := io.ReadAll(content)
 						if err != nil {
 							return err
@@ -342,7 +342,7 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the droplet cannot be copied to the container", func() {
 				it.Before(func() {
-					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options types.CopyToContainerOptions) error {
+					client.CopyToContainerCall.Stub = func(ctx gocontext.Context, containerID, dstPath string, content io.Reader, options container.CopyToContainerOptions) error {
 						b, err := io.ReadAll(content)
 						if err != nil {
 							return err

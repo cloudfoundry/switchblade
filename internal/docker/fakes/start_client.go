@@ -49,12 +49,12 @@ type StartClient struct {
 		Receives  struct {
 			Ctx         context.Context
 			ContainerID string
-			Options     types.ContainerStartOptions
+			Options     container.StartOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, types.ContainerStartOptions) error
+		Stub func(context.Context, string, container.StartOptions) error
 	}
 	CopyToContainerCall struct {
 		mutex     sync.Mutex
@@ -64,12 +64,12 @@ type StartClient struct {
 			ContainerID string
 			DstPath     string
 			Content     io.Reader
-			Options     types.CopyToContainerOptions
+			Options     container.CopyToContainerOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, string, io.Reader, types.CopyToContainerOptions) error
+		Stub func(context.Context, string, string, io.Reader, container.CopyToContainerOptions) error
 	}
 }
 
@@ -99,7 +99,7 @@ func (f *StartClient) ContainerInspect(param1 context.Context, param2 string) (t
 	}
 	return f.ContainerInspectCall.Returns.ContainerJSON, f.ContainerInspectCall.Returns.Error
 }
-func (f *StartClient) ContainerStart(param1 context.Context, param2 string, param3 types.ContainerStartOptions) error {
+func (f *StartClient) ContainerStart(param1 context.Context, param2 string, param3 container.StartOptions) error {
 	f.ContainerStartCall.mutex.Lock()
 	defer f.ContainerStartCall.mutex.Unlock()
 	f.ContainerStartCall.CallCount++
@@ -111,7 +111,7 @@ func (f *StartClient) ContainerStart(param1 context.Context, param2 string, para
 	}
 	return f.ContainerStartCall.Returns.Error
 }
-func (f *StartClient) CopyToContainer(param1 context.Context, param2 string, param3 string, param4 io.Reader, param5 types.CopyToContainerOptions) error {
+func (f *StartClient) CopyToContainer(param1 context.Context, param2 string, param3 string, param4 io.Reader, param5 container.CopyToContainerOptions) error {
 	f.CopyToContainerCall.mutex.Lock()
 	defer f.CopyToContainerCall.mutex.Unlock()
 	f.CopyToContainerCall.CallCount++

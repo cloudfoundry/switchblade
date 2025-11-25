@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 )
 
 type TeardownClient struct {
@@ -14,16 +14,16 @@ type TeardownClient struct {
 		Receives  struct {
 			Ctx         context.Context
 			ContainerID string
-			Options     types.ContainerRemoveOptions
+			Options     container.RemoveOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, types.ContainerRemoveOptions) error
+		Stub func(context.Context, string, container.RemoveOptions) error
 	}
 }
 
-func (f *TeardownClient) ContainerRemove(param1 context.Context, param2 string, param3 types.ContainerRemoveOptions) error {
+func (f *TeardownClient) ContainerRemove(param1 context.Context, param2 string, param3 container.RemoveOptions) error {
 	f.ContainerRemoveCall.mutex.Lock()
 	defer f.ContainerRemoveCall.mutex.Unlock()
 	f.ContainerRemoveCall.CallCount++

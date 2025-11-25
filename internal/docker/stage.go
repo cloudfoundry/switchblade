@@ -21,11 +21,11 @@ type StagePhase interface {
 
 //go:generate faux --interface StageClient --output fakes/stage_client.go
 type StageClient interface {
-	ContainerStart(ctx context.Context, containerID string, options types.ContainerStartOptions) error
+	ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error
 	ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error)
-	ContainerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error)
+	ContainerLogs(ctx context.Context, container string, options container.LogsOptions) (io.ReadCloser, error)
 	CopyFromContainer(ctx context.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error)
-	ContainerRemove(ctx context.Context, containerID string, options types.ContainerRemoveOptions) error
+	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
 }
 
 type Stage struct {
@@ -43,7 +43,7 @@ func NewStage(client StageClient, archiver Archiver, workspace string) Stage {
 }
 
 func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string) (string, error) {
-	err := s.client.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
+	err := s.client.ContainerStart(ctx, containerID, container.StartOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to start container: %w", err)
 	}
@@ -58,7 +58,7 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 	case status = <-onExit:
 	}
 
-	containerLogs, err := s.client.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
+	containerLogs, err := s.client.ContainerLogs(ctx, containerID, container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 	})
@@ -73,7 +73,7 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 	}
 
 	if status.StatusCode != 0 {
-		err = s.client.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
+		err = s.client.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 		if err != nil {
 			return "", fmt.Errorf("failed to remove container: %w", err)
 		}
@@ -201,7 +201,7 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 		}
 	}
 
-	err = s.client.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
+	err = s.client.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if err != nil {
 		return "", fmt.Errorf("failed to remove container: %w", err)
 	}

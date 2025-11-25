@@ -9,7 +9,7 @@ import (
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/errdefs"
 	"github.com/sclevine/spec"
 
@@ -71,7 +71,7 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 
 			Expect(client.ContainerRemoveCall.Receives.Ctx).To(Equal(ctx))
 			Expect(client.ContainerRemoveCall.Receives.ContainerID).To(Equal("some-app"))
-			Expect(client.ContainerRemoveCall.Receives.Options).To(Equal(types.ContainerRemoveOptions{
+			Expect(client.ContainerRemoveCall.Receives.Options).To(Equal(container.RemoveOptions{
 				Force: true,
 			}))
 
