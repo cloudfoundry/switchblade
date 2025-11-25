@@ -277,7 +277,7 @@ func (s Setup) Run(log io.Writer, home, name, source string) (string, error) {
 
 	for _, phase := range []string{"staging", "running"} {
 		err = s.cli.Execute(pexec.Execution{
-			Args:   []string{"bind-security-group", name, name, name, "--lifecycle", phase},
+			Args:   []string{"bind-security-group", name, name, "--space", name, "--lifecycle", phase},
 			Stdout: log,
 			Stderr: log,
 			Env:    env,
@@ -289,20 +289,18 @@ func (s Setup) Run(log io.Writer, home, name, source string) (string, error) {
 
 	buffer = bytes.NewBuffer(nil)
 	err = s.cli.Execute(pexec.Execution{
-		Args:   []string{"curl", "/v2/security_groups"},
+		Args:   []string{"curl", "/v3/security_groups"},
 		Stdout: io.MultiWriter(log, buffer),
 		Stderr: io.MultiWriter(log, buffer),
 		Env:    env,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to curl /v2/security_groups: %w\n\nOutput:\n%s", err, log)
+		return "", fmt.Errorf("failed to curl /v3/security_groups: %w\n\nOutput:\n%s", err, log)
 	}
 
 	var securityGroups struct {
 		Resources []struct {
-			Entity struct {
-				Name string `json:"name"`
-			} `json:"entity"`
+			Name string `json:"name"`
 		} `json:"resources"`
 	}
 	err = json.NewDecoder(buffer).Decode(&securityGroups)
@@ -311,9 +309,9 @@ func (s Setup) Run(log io.Writer, home, name, source string) (string, error) {
 	}
 
 	for _, securityGroup := range securityGroups.Resources {
-		if !strings.HasPrefix(securityGroup.Entity.Name, "switchblade") {
+		if !strings.HasPrefix(securityGroup.Name, "switchblade") {
 			err = s.cli.Execute(pexec.Execution{
-				Args:   []string{"update-security-group", securityGroup.Entity.Name, filepath.Join(home, "empty-security-group.json")},
+				Args:   []string{"update-security-group", securityGroup.Name, filepath.Join(home, "empty-security-group.json")},
 				Stdout: log,
 				Stderr: log,
 				Env:    env,
@@ -359,7 +357,7 @@ func (s Setup) Run(log io.Writer, home, name, source string) (string, error) {
 	}
 
 	err = s.cli.Execute(pexec.Execution{
-		Args:   []string{"map-route", name, fmt.Sprintf("tcp.%s", domain), "--random-port"},
+		Args:   []string{"map-route", name, fmt.Sprintf("tcp.%s", domain)},
 		Stdout: log,
 		Stderr: log,
 		Env:    env,
@@ -387,7 +385,7 @@ func (s Setup) Run(log io.Writer, home, name, source string) (string, error) {
 	}
 	err = json.NewDecoder(buffer).Decode(&spaces)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse spaces: %w", err)
+		return "", fmt.Errorf("failed to parse spaces: %w\n\nOutput:\n%s", err, log)
 	}
 
 	var spaceGUID string
@@ -417,7 +415,7 @@ func (s Setup) Run(log io.Writer, home, name, source string) (string, error) {
 	}
 	err = json.NewDecoder(buffer).Decode(&routes)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse routes: %w", err)
+		return "", fmt.Errorf("failed to parse routes: %w\n\nOutput:\n%s", err, log)
 	}
 
 	var port int
