@@ -194,7 +194,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[13]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"map-route", "some-app", "tcp.example.com", "--random-port"}),
+				"Args": Equal([]string{"map-route", "some-app", "tcp.example.com"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[14]).To(MatchFields(IgnoreExtras, Fields{
