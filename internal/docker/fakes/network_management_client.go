@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
 )
 
@@ -29,26 +28,26 @@ type NetworkManagementClient struct {
 		Receives  struct {
 			Ctx     context.Context
 			Name    string
-			Options types.NetworkCreate
+			Options network.CreateOptions
 		}
 		Returns struct {
-			NetworkCreateResponse types.NetworkCreateResponse
+			NetworkCreateResponse network.CreateResponse
 			Error                 error
 		}
-		Stub func(context.Context, string, types.NetworkCreate) (types.NetworkCreateResponse, error)
+		Stub func(context.Context, string, network.CreateOptions) (network.CreateResponse, error)
 	}
 	NetworkListCall struct {
 		mutex     sync.Mutex
 		CallCount int
 		Receives  struct {
 			Ctx     context.Context
-			Options types.NetworkListOptions
+			Options network.ListOptions
 		}
 		Returns struct {
-			NetworkResourceSlice []types.NetworkResource
+			NetworkResourceSlice []network.Inspect
 			Error                error
 		}
-		Stub func(context.Context, types.NetworkListOptions) ([]types.NetworkResource, error)
+		Stub func(context.Context, network.ListOptions) ([]network.Inspect, error)
 	}
 	NetworkRemoveCall struct {
 		mutex     sync.Mutex
@@ -77,7 +76,7 @@ func (f *NetworkManagementClient) NetworkConnect(param1 context.Context, param2 
 	}
 	return f.NetworkConnectCall.Returns.Error
 }
-func (f *NetworkManagementClient) NetworkCreate(param1 context.Context, param2 string, param3 types.NetworkCreate) (types.NetworkCreateResponse, error) {
+func (f *NetworkManagementClient) NetworkCreate(param1 context.Context, param2 string, param3 network.CreateOptions) (network.CreateResponse, error) {
 	f.NetworkCreateCall.mutex.Lock()
 	defer f.NetworkCreateCall.mutex.Unlock()
 	f.NetworkCreateCall.CallCount++
@@ -89,7 +88,7 @@ func (f *NetworkManagementClient) NetworkCreate(param1 context.Context, param2 s
 	}
 	return f.NetworkCreateCall.Returns.NetworkCreateResponse, f.NetworkCreateCall.Returns.Error
 }
-func (f *NetworkManagementClient) NetworkList(param1 context.Context, param2 types.NetworkListOptions) ([]types.NetworkResource, error) {
+func (f *NetworkManagementClient) NetworkList(param1 context.Context, param2 network.ListOptions) ([]network.Inspect, error) {
 	f.NetworkListCall.mutex.Lock()
 	defer f.NetworkListCall.mutex.Unlock()
 	f.NetworkListCall.CallCount++

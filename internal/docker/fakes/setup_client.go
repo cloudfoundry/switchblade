@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -49,12 +50,12 @@ type SetupClient struct {
 		Receives  struct {
 			Ctx         context.Context
 			ContainerID string
-			Options     types.ContainerRemoveOptions
+			Options     container.RemoveOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, types.ContainerRemoveOptions) error
+		Stub func(context.Context, string, container.RemoveOptions) error
 	}
 	CopyToContainerCall struct {
 		mutex     sync.Mutex
@@ -64,12 +65,12 @@ type SetupClient struct {
 			ContainerID string
 			DstPath     string
 			Content     io.Reader
-			Options     types.CopyToContainerOptions
+			Options     container.CopyToContainerOptions
 		}
 		Returns struct {
 			Error error
 		}
-		Stub func(context.Context, string, string, io.Reader, types.CopyToContainerOptions) error
+		Stub func(context.Context, string, string, io.Reader, container.CopyToContainerOptions) error
 	}
 	ImagePullCall struct {
 		mutex     sync.Mutex
@@ -77,13 +78,13 @@ type SetupClient struct {
 		Receives  struct {
 			Ctx     context.Context
 			Ref     string
-			Options types.ImagePullOptions
+			Options image.PullOptions
 		}
 		Returns struct {
 			ReadCloser io.ReadCloser
 			Error      error
 		}
-		Stub func(context.Context, string, types.ImagePullOptions) (io.ReadCloser, error)
+		Stub func(context.Context, string, image.PullOptions) (io.ReadCloser, error)
 	}
 }
 
@@ -113,7 +114,7 @@ func (f *SetupClient) ContainerInspect(param1 context.Context, param2 string) (t
 	}
 	return f.ContainerInspectCall.Returns.ContainerJSON, f.ContainerInspectCall.Returns.Error
 }
-func (f *SetupClient) ContainerRemove(param1 context.Context, param2 string, param3 types.ContainerRemoveOptions) error {
+func (f *SetupClient) ContainerRemove(param1 context.Context, param2 string, param3 container.RemoveOptions) error {
 	f.ContainerRemoveCall.mutex.Lock()
 	defer f.ContainerRemoveCall.mutex.Unlock()
 	f.ContainerRemoveCall.CallCount++
@@ -125,7 +126,7 @@ func (f *SetupClient) ContainerRemove(param1 context.Context, param2 string, par
 	}
 	return f.ContainerRemoveCall.Returns.Error
 }
-func (f *SetupClient) CopyToContainer(param1 context.Context, param2 string, param3 string, param4 io.Reader, param5 types.CopyToContainerOptions) error {
+func (f *SetupClient) CopyToContainer(param1 context.Context, param2 string, param3 string, param4 io.Reader, param5 container.CopyToContainerOptions) error {
 	f.CopyToContainerCall.mutex.Lock()
 	defer f.CopyToContainerCall.mutex.Unlock()
 	f.CopyToContainerCall.CallCount++
@@ -139,7 +140,7 @@ func (f *SetupClient) CopyToContainer(param1 context.Context, param2 string, par
 	}
 	return f.CopyToContainerCall.Returns.Error
 }
-func (f *SetupClient) ImagePull(param1 context.Context, param2 string, param3 types.ImagePullOptions) (io.ReadCloser, error) {
+func (f *SetupClient) ImagePull(param1 context.Context, param2 string, param3 image.PullOptions) (io.ReadCloser, error) {
 	f.ImagePullCall.mutex.Lock()
 	defer f.ImagePullCall.mutex.Unlock()
 	f.ImagePullCall.CallCount++

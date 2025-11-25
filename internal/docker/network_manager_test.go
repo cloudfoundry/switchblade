@@ -7,7 +7,7 @@ import (
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/errdefs"
 	"github.com/sclevine/spec"
 
@@ -37,7 +37,7 @@ func testNetworkManager(t *testing.T, context spec.G, it spec.S) {
 
 			Expect(client.NetworkCreateCall.Receives.Ctx).To(Equal(ctx))
 			Expect(client.NetworkCreateCall.Receives.Name).To(Equal("some-network"))
-			Expect(client.NetworkCreateCall.Receives.Options).To(Equal(types.NetworkCreate{
+			Expect(client.NetworkCreateCall.Receives.Options).To(Equal(network.CreateOptions{
 				Driver:   "some-driver",
 				Internal: true,
 			}))
@@ -45,7 +45,7 @@ func testNetworkManager(t *testing.T, context spec.G, it spec.S) {
 
 		context("if the internal network already exists", func() {
 			it.Before(func() {
-				client.NetworkListCall.Returns.NetworkResourceSlice = []types.NetworkResource{
+				client.NetworkListCall.Returns.NetworkResourceSlice = []network.Inspect{
 					{
 						Name: "bridge",
 						ID:   "bridge-network-id",
@@ -103,7 +103,7 @@ func testNetworkManager(t *testing.T, context spec.G, it spec.S) {
 
 	context("Connect", func() {
 		it.Before(func() {
-			client.NetworkListCall.Returns.NetworkResourceSlice = []types.NetworkResource{
+			client.NetworkListCall.Returns.NetworkResourceSlice = []network.Inspect{
 				{
 					Name: "bridge",
 					ID:   "bridge-network-id",
@@ -173,7 +173,7 @@ func testNetworkManager(t *testing.T, context spec.G, it spec.S) {
 
 	context("Delete", func() {
 		it.Before(func() {
-			client.NetworkListCall.Returns.NetworkResourceSlice = []types.NetworkResource{
+			client.NetworkListCall.Returns.NetworkResourceSlice = []network.Inspect{
 				{
 					Name: "bridge",
 					ID:   "bridge-network-id",
