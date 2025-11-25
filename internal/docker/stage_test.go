@@ -14,7 +14,6 @@ import (
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/paketo-buildpacks/packit/v2/vacation"
@@ -51,7 +50,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			_, err = containerLogsWriter.Write([]byte("Fetching container logs...\n"))
 			Expect(err).NotTo(HaveOccurred())
 			client.ContainerLogsCall.Returns.ReadCloser = io.NopCloser(containerLogs)
-			client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+			client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 				copyFromContainerInvocations = append(copyFromContainerInvocations, copyFromContainerInvocation{
 					ContainerID: containerID,
 					SrcPath:     srcPath,
@@ -61,12 +60,12 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 				switch srcPath {
 				case "/tmp/droplet":
 					if err := generateDroplet(buffer); err != nil {
-						return nil, types.ContainerPathStat{}, err
+						return nil, container.PathStat{}, err
 					}
 
 				case "/tmp/output-cache":
 					if err := generateBuildCache(buffer); err != nil {
-						return nil, types.ContainerPathStat{}, err
+						return nil, container.PathStat{}, err
 					}
 
 				case "/tmp/result.json":
@@ -77,11 +76,11 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 						]
 					}`)
 					if err != nil {
-						return nil, types.ContainerPathStat{}, err
+						return nil, container.PathStat{}, err
 					}
 				}
 
-				return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+				return io.NopCloser(buffer), container.PathStat{}, nil
 			}
 
 			archiver := docker.NewTGZArchiver()
@@ -266,13 +265,13 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the droplet cannot be copied from the container", func() {
 				it.Before(func() {
-					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 						switch srcPath {
 						case "/tmp/droplet":
-							return nil, types.ContainerPathStat{}, errors.New("could not copy droplet")
+							return nil, container.PathStat{}, errors.New("could not copy droplet")
 						}
 
-						return nil, types.ContainerPathStat{}, nil
+						return nil, container.PathStat{}, nil
 					}
 				})
 
@@ -302,13 +301,13 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the droplet tarball is malformed", func() {
 				it.Before(func() {
-					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 						switch srcPath {
 						case "/tmp/droplet":
-							return io.NopCloser(iotest.ErrReader(errors.New("could not read tarball"))), types.ContainerPathStat{}, nil
+							return io.NopCloser(iotest.ErrReader(errors.New("could not read tarball"))), container.PathStat{}, nil
 						}
 
-						return nil, types.ContainerPathStat{}, nil
+						return nil, container.PathStat{}, nil
 					}
 				})
 
@@ -323,19 +322,19 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the build cache cannot be copied from the container", func() {
 				it.Before(func() {
-					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 						buffer := bytes.NewBuffer(nil)
 						switch srcPath {
 						case "/tmp/droplet":
 							if err := generateDroplet(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/output-cache":
-							return nil, types.ContainerPathStat{}, errors.New("could not copy output-cache")
+							return nil, container.PathStat{}, errors.New("could not copy output-cache")
 						}
 
-						return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						return io.NopCloser(buffer), container.PathStat{}, nil
 					}
 				})
 
@@ -350,20 +349,20 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the build cache tarball is malformed", func() {
 				it.Before(func() {
-					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 						buffer := bytes.NewBuffer(nil)
 
 						switch srcPath {
 						case "/tmp/droplet":
 							if err := generateDroplet(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/output-cache":
-							return io.NopCloser(iotest.ErrReader(errors.New("could not read tarball"))), types.ContainerPathStat{}, nil
+							return io.NopCloser(iotest.ErrReader(errors.New("could not read tarball"))), container.PathStat{}, nil
 						}
 
-						return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						return io.NopCloser(buffer), container.PathStat{}, nil
 					}
 				})
 
@@ -393,13 +392,13 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the build cache internal tarball is malformed", func() {
 				it.Before(func() {
-					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 						buffer := bytes.NewBuffer(nil)
 
 						switch srcPath {
 						case "/tmp/droplet":
 							if err := generateDroplet(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/output-cache":
@@ -407,16 +406,16 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 							defer tw.Close()
 							err := tw.WriteHeader(&tar.Header{Name: "output-cache", Mode: 0600, Size: 19})
 							if err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 							_, err = tw.Write([]byte("not-a-valid-tarball"))
 							if err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 						}
 
-						return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						return io.NopCloser(buffer), container.PathStat{}, nil
 					}
 				})
 
@@ -432,24 +431,24 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the result cannot be copied from the container", func() {
 				it.Before(func() {
-					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 						buffer := bytes.NewBuffer(nil)
 						switch srcPath {
 						case "/tmp/droplet":
 							if err := generateDroplet(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/output-cache":
 							if err := generateBuildCache(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/result.json":
-							return nil, types.ContainerPathStat{}, errors.New("could not copy result.json")
+							return nil, container.PathStat{}, errors.New("could not copy result.json")
 						}
 
-						return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						return io.NopCloser(buffer), container.PathStat{}, nil
 					}
 				})
 
@@ -464,24 +463,24 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the result tarball is malformed", func() {
 				it.Before(func() {
-					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 						buffer := bytes.NewBuffer(nil)
 						switch srcPath {
 						case "/tmp/droplet":
 							if err := generateDroplet(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/output-cache":
 							if err := generateBuildCache(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/result.json":
-							return io.NopCloser(iotest.ErrReader(errors.New("could not read tarball"))), types.ContainerPathStat{}, nil
+							return io.NopCloser(iotest.ErrReader(errors.New("could not read tarball"))), container.PathStat{}, nil
 						}
 
-						return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						return io.NopCloser(buffer), container.PathStat{}, nil
 					}
 				})
 
@@ -496,27 +495,27 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 
 			context("when the result json is malformed", func() {
 				it.Before(func() {
-					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
+					client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 						buffer := bytes.NewBuffer(nil)
 
 						switch srcPath {
 						case "/tmp/droplet":
 							if err := generateDroplet(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/output-cache":
 							if err := generateBuildCache(buffer); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 
 						case "/tmp/result.json":
 							if err := generateResultJSON(buffer, "%%%"); err != nil {
-								return nil, types.ContainerPathStat{}, err
+								return nil, container.PathStat{}, err
 							}
 						}
 
-						return io.NopCloser(buffer), types.ContainerPathStat{}, nil
+						return io.NopCloser(buffer), container.PathStat{}, nil
 					}
 				})
 

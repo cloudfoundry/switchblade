@@ -5,7 +5,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 )
 
@@ -74,10 +73,10 @@ type StageClient struct {
 		}
 		Returns struct {
 			ReadCloser        io.ReadCloser
-			ContainerPathStat types.ContainerPathStat
+			ContainerPathStat container.PathStat
 			Error             error
 		}
-		Stub func(context.Context, string, string) (io.ReadCloser, types.ContainerPathStat, error)
+		Stub func(context.Context, string, string) (io.ReadCloser, container.PathStat, error)
 	}
 }
 
@@ -129,7 +128,7 @@ func (f *StageClient) ContainerWait(param1 context.Context, param2 string, param
 	}
 	return f.ContainerWaitCall.Returns.WaitResponseChannel, f.ContainerWaitCall.Returns.ErrorChannel
 }
-func (f *StageClient) CopyFromContainer(param1 context.Context, param2 string, param3 string) (io.ReadCloser, types.ContainerPathStat, error) {
+func (f *StageClient) CopyFromContainer(param1 context.Context, param2 string, param3 string) (io.ReadCloser, container.PathStat, error) {
 	f.CopyFromContainerCall.mutex.Lock()
 	defer f.CopyFromContainerCall.mutex.Unlock()
 	f.CopyFromContainerCall.CallCount++
