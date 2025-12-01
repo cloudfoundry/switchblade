@@ -25,19 +25,21 @@ type SetupPhase interface {
 	WithoutInternetAccess() SetupPhase
 	WithServices(services map[string]map[string]interface{}) SetupPhase
 	WithStartCommand(command string) SetupPhase
+	WithHealthCheckType(healthCheckType string) SetupPhase
 }
 
 type Setup struct {
 	cli  Executable
 	home string
 
-	internetAccess bool
-	buildpacks     []string
-	stack          string
-	env            map[string]string
-	services       map[string]map[string]interface{}
-	lookupHost     func(string) ([]string, error)
-	startCommand   string
+	internetAccess  bool
+	buildpacks      []string
+	stack           string
+	env             map[string]string
+	services        map[string]map[string]interface{}
+	lookupHost      func(string) ([]string, error)
+	startCommand    string
+	healthCheckType string
 }
 
 func NewSetup(cli Executable, home, stack string) Setup {
@@ -82,6 +84,11 @@ func (s Setup) WithCustomHostLookup(lookupHost func(string) ([]string, error)) S
 
 func (s Setup) WithStartCommand(command string) SetupPhase {
 	s.startCommand = command
+	return s
+}
+
+func (s Setup) WithHealthCheckType(healthCheckType string) SetupPhase {
+	s.healthCheckType = healthCheckType
 	return s
 }
 
@@ -353,17 +360,19 @@ func (s Setup) Run(log io.Writer, home, name, source string) (string, error) {
 		Env:    env,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to update-quota: %w\n\nOutput:\n%s", err, log)
-	}
-
-	err = s.cli.Execute(pexec.Execution{
-		Args:   []string{"map-route", name, fmt.Sprintf("tcp.%s", domain)},
-		Stdout: log,
-		Stderr: log,
-		Env:    env,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to map-route: %w\n\nOutput:\n%s", err, log)
+		fmt.Fprintf(log, "WARNING: failed to update-quota for TCP routes: %v\n", err)
+		fmt.Fprintf(log, "Continuing without TCP route - HTTP routes will still be available\n")
+	} else {
+		err = s.cli.Execute(pexec.Execution{
+			Args:   []string{"map-route", name, fmt.Sprintf("tcp.%s", domain)},
+			Stdout: log,
+			Stderr: log,
+			Env:    env,
+		})
+		if err != nil {
+			fmt.Fprintf(log, "WARNING: failed to map TCP route: %v\n", err)
+			fmt.Fprintf(log, "Continuing without TCP route - HTTP routes will still be available\n")
+		}
 	}
 
 	buffer = bytes.NewBuffer(nil)
@@ -441,6 +450,18 @@ func (s Setup) Run(log io.Writer, home, name, source string) (string, error) {
 		})
 		if err != nil {
 			return "", fmt.Errorf("failed to set-env: %w\n\nOutput:\n%s", err, log)
+		}
+	}
+
+	if s.healthCheckType != "" {
+		err = s.cli.Execute(pexec.Execution{
+			Args:   []string{"set-health-check", name, s.healthCheckType},
+			Stdout: log,
+			Stderr: log,
+			Env:    env,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to set-health-check: %w\n\nOutput:\n%s", err, log)
 		}
 	}
 

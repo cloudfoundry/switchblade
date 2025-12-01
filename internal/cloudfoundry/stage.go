@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/paketo-buildpacks/packit/v2/pexec"
@@ -52,8 +51,9 @@ func (s Stage) Run(logs io.Writer, home, name string) (string, error) {
 	guid := strings.TrimSpace(buffer.String())
 	buffer = bytes.NewBuffer(nil)
 	err = s.cli.Execute(pexec.Execution{
-		Args:   []string{"curl", path.Join("/v2", "apps", guid, "routes")},
+		Args:   []string{"curl", fmt.Sprintf("/v3/apps/%s/routes", guid)},
 		Stdout: buffer,
+		Stderr: logs,
 		Env:    env,
 	})
 	if err != nil {
