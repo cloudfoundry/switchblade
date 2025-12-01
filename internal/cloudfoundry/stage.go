@@ -62,11 +62,8 @@ func (s Stage) Run(logs io.Writer, home, name string) (string, error) {
 
 	var routes struct {
 		Resources []struct {
-			Entity struct {
-				DomainURL string `json:"domain_url"`
-				Host      string `json:"host"`
-				Path      string `json:"path"`
-			} `json:"entity"`
+			URL      string `json:"url"`
+			Protocol string `json:"protocol"`
 		} `json:"resources"`
 	}
 	err = json.NewDecoder(buffer).Decode(&routes)
@@ -76,28 +73,7 @@ func (s Stage) Run(logs io.Writer, home, name string) (string, error) {
 
 	var url string
 	if len(routes.Resources) > 0 {
-		route := routes.Resources[0].Entity
-		buffer = bytes.NewBuffer(nil)
-		err = s.cli.Execute(pexec.Execution{
-			Args:   []string{"curl", route.DomainURL},
-			Stdout: buffer,
-			Env:    env,
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to fetch domain: %w\n\nOutput:\n%s", err, buffer)
-		}
-
-		var domain struct {
-			Entity struct {
-				Name string `json:"name"`
-			} `json:"entity"`
-		}
-		err = json.NewDecoder(buffer).Decode(&domain)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse domain: %w\n\nOutput:\n%s", err, buffer)
-		}
-
-		url = fmt.Sprintf("http://%s.%s%s", route.Host, domain.Entity.Name, route.Path)
+		url = fmt.Sprintf("http://%s", routes.Resources[0].URL)
 	}
 
 	return url, nil

@@ -47,23 +47,14 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 					fmt.Fprintln(execution.Stdout, "Starting app...")
 				case strings.HasPrefix(command, "app"):
 					fmt.Fprintln(execution.Stdout, "some-app-guid")
-				case strings.HasPrefix(command, "curl /v2/apps/some-app-guid/routes"):
+				case strings.HasPrefix(command, "curl /v3/apps/some-app-guid/routes"):
 					fmt.Fprintln(execution.Stdout, `{
 						"resources": [
 							{
-								"entity": {
-									"domain_url": "/v2/shared_domains/some-domain-guid",
-									"host": "some-app",
-									"path": "/some/path"
-								}
+								"url": "some-app.example.com/some/path",
+								"protocol": "http"
 							}
 						]
-					}`)
-				case strings.HasPrefix(command, "curl /v2/shared_domains"):
-					fmt.Fprintln(execution.Stdout, `{
-						"entity": {
-							"name": "example.com"
-						}
 					}`)
 				}
 
@@ -84,7 +75,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(url).To(Equal("http://some-app.example.com/some/path"))
 
-			Expect(executions).To(HaveLen(4))
+			Expect(executions).To(HaveLen(3))
 			Expect(executions[0]).To(MatchFields(IgnoreExtras, Fields{
 				"Args": Equal([]string{"start", "some-app"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
@@ -94,11 +85,7 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 			Expect(executions[2]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"curl", "/v2/apps/some-app-guid/routes"}),
-				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
-			}))
-			Expect(executions[3]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"curl", "/v2/shared_domains/some-domain-guid"}),
+				"Args": Equal([]string{"curl", "/v3/apps/some-app-guid/routes"}),
 				"Env":  ContainElement(fmt.Sprintf("CF_HOME=%s", filepath.Join(workspace, "some-home"))),
 			}))
 
@@ -154,10 +141,15 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			context("when the routes cannot be fetched", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						fmt.Fprintln(execution.Stdout, "Some log output")
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "curl /v2/app") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "app some-app --guid"):
+							fmt.Fprintln(execution.Stdout, "some-app-guid")
+						case strings.HasPrefix(command, "curl /v3/app"):
 							fmt.Fprintln(execution.Stdout, "Could not fetch routes")
 							return errors.New("exit status 1")
+						default:
+							fmt.Fprintln(execution.Stdout, "Some log output")
 						}
 						return nil
 					}
@@ -177,9 +169,13 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			context("when the routes response is not JSON", func() {
 				it.Before(func() {
 					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						if strings.HasPrefix(strings.Join(execution.Args, " "), "curl /v2/apps") {
+						command := strings.Join(execution.Args, " ")
+						switch {
+						case strings.HasPrefix(command, "app some-app --guid"):
+							fmt.Fprintln(execution.Stdout, "some-app-guid")
+						case strings.HasPrefix(command, "curl /v3/apps"):
 							fmt.Fprintln(execution.Stdout, "%%%%")
-						} else {
+						default:
 							fmt.Fprintln(execution.Stdout, "Some log output")
 						}
 						return nil
@@ -196,83 +192,6 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 				})
 			})
 
-			context("when the domain cannot be fetched", func() {
-				it.Before(func() {
-					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						command := strings.Join(execution.Args, " ")
-						switch {
-						case strings.HasPrefix(command, "app some-app --guid"):
-							fmt.Fprintln(execution.Stdout, "some-app-guid")
-						case strings.HasPrefix(command, "curl /v2/apps/some-app-guid/routes"):
-							fmt.Fprintln(execution.Stdout, `{
-								"resources": [
-									{
-										"entity": {
-											"domain_url": "/v2/shared_domains/some-domain-guid",
-											"host": "some-app",
-											"path": "/some/path"
-										}
-									}
-								]
-							}`)
-						case strings.HasPrefix(command, "curl /v2/shared_domains"):
-							fmt.Fprintln(execution.Stdout, "Could not fetch domain")
-							return errors.New("exit status 1")
-						default:
-							fmt.Fprintln(execution.Stdout, "Some log output")
-						}
-						return nil
-					}
-				})
-
-				it("returns an error and the build logs", func() {
-					logs := bytes.NewBuffer(nil)
-
-					_, err := stage.Run(logs, filepath.Join(workspace, "some-home"), "some-app")
-					Expect(err).To(MatchError(ContainSubstring("failed to fetch domain: exit status 1")))
-					Expect(err).To(MatchError(ContainSubstring("Could not fetch domain")))
-
-					Expect(logs).To(ContainSubstring("Some log output"))
-				})
-			})
-
-			context("when the domain cannot be parsed", func() {
-				it.Before(func() {
-					executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
-						command := strings.Join(execution.Args, " ")
-						switch {
-						case strings.HasPrefix(command, "app some-app --guid"):
-							fmt.Fprintln(execution.Stdout, "some-app-guid")
-						case strings.HasPrefix(command, "curl /v2/apps/some-app-guid/routes"):
-							fmt.Fprintln(execution.Stdout, `{
-									"resources": [
-										{
-											"entity": {
-												"domain_url": "/v2/shared_domains/some-domain-guid",
-												"host": "some-app",
-												"path": "/some/path"
-											}
-										}
-									]
-								}`)
-						case strings.HasPrefix(command, "curl /v2/shared_domains"):
-							fmt.Fprintln(execution.Stdout, "%%%")
-						default:
-							fmt.Fprintln(execution.Stdout, "Some log output")
-						}
-						return nil
-					}
-				})
-
-				it("returns an error and the build logs", func() {
-					logs := bytes.NewBuffer(nil)
-
-					_, err := stage.Run(logs, filepath.Join(workspace, "some-home"), "some-app")
-					Expect(err).To(MatchError(ContainSubstring("failed to parse domain: invalid character '%'")))
-
-					Expect(logs).To(ContainSubstring("Some log output"))
-				})
-			})
 		})
 	})
 }
