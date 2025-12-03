@@ -64,7 +64,7 @@ func testInitialize(t *testing.T, context spec.G, it spec.S) {
 				"Args": Equal([]string{"curl", "/v3/buildpacks?names=some-buildpack-name"}),
 			}))
 			Expect(executions[1]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"delete-buildpack", "-f", "some-buildpack-name", "-s", "test-stack"}),
+				"Args": Equal([]string{"delete-buildpack", "-f", "some-buildpack-name"}),
 			}))
 			Expect(executions[2]).To(MatchFields(IgnoreExtras, Fields{
 				"Args": Equal([]string{"create-buildpack", "some-buildpack-name", "some-buildpack-uri", "123"}),
@@ -73,7 +73,7 @@ func testInitialize(t *testing.T, context spec.G, it spec.S) {
 				"Args": Equal([]string{"curl", "/v3/buildpacks?names=other-buildpack-name"}),
 			}))
 			Expect(executions[4]).To(MatchFields(IgnoreExtras, Fields{
-				"Args": Equal([]string{"delete-buildpack", "-f", "other-buildpack-name", "-s", "test-stack"}),
+				"Args": Equal([]string{"delete-buildpack", "-f", "other-buildpack-name"}),
 			}))
 			Expect(executions[5]).To(MatchFields(IgnoreExtras, Fields{
 				"Args": Equal([]string{"create-buildpack", "other-buildpack-name", "other-buildpack-uri", "234"}),
@@ -122,7 +122,7 @@ func testInitialize(t *testing.T, context spec.G, it spec.S) {
 					"Args": Equal([]string{"curl", "/v3/buildpacks?names=other-buildpack-name"}),
 				}))
 				Expect(executions[3]).To(MatchFields(IgnoreExtras, Fields{
-					"Args": Equal([]string{"delete-buildpack", "-f", "other-buildpack-name", "-s", "test-stack"}),
+					"Args": Equal([]string{"delete-buildpack", "-f", "other-buildpack-name"}),
 				}))
 				Expect(executions[4]).To(MatchFields(IgnoreExtras, Fields{
 					"Args": Equal([]string{"create-buildpack", "other-buildpack-name", "other-buildpack-uri", "234"}),
