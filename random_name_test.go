@@ -15,6 +15,12 @@ func testRandomName(t *testing.T, context spec.G, it spec.S) {
 	it("generates a random name", func() {
 		name, err := switchblade.RandomName()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(name).To(MatchRegexp(`^switchblade\-[0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]{9}$`))
+		Expect(name).To(MatchRegexp(`^switchblade\-[0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-]+$`))
+	})
+
+	it("generates a DNS-safe name without underscores", func() {
+		name, err := switchblade.RandomName()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(name).NotTo(ContainSubstring("_"))
 	})
 }
