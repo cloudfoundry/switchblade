@@ -13,6 +13,7 @@ func TestCloudFoundry(t *testing.T) {
 
 	suite := spec.New("switchblade/internal/cloudfoundry", spec.Report(report.Terminal{}), spec.Parallel())
 	suite("Initialize", testInitialize)
+	suite("Logs", testLogs)
 	suite("Setup", testSetup)
 	suite("Stage", testStage)
 	suite("Teardown", testTeardown)
