@@ -11,6 +11,8 @@ import (
 	"github.com/cloudfoundry/switchblade"
 	"github.com/cloudfoundry/switchblade/fakes"
 	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
+	cffakes "github.com/cloudfoundry/switchblade/internal/cloudfoundry/fakes"
+	"github.com/paketo-buildpacks/packit/v2/pexec"
 	"github.com/sclevine/spec"
 
 	. "github.com/cloudfoundry/switchblade/matchers"
@@ -26,6 +28,7 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 		setup        *fakes.CloudFoundrySetupPhase
 		stage        *fakes.CloudFoundryStagePhase
 		teardown     *fakes.CloudFoundryTeardownPhase
+		cli          *cffakes.Executable
 		workspace    string
 
 		platform switchblade.Platform
@@ -37,12 +40,13 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 		setup = &fakes.CloudFoundrySetupPhase{}
 		stage = &fakes.CloudFoundryStagePhase{}
 		teardown = &fakes.CloudFoundryTeardownPhase{}
+		cli = &cffakes.Executable{}
 
 		var err error
 		workspace, err = os.MkdirTemp("", "workspace")
 		Expect(err).NotTo(HaveOccurred())
 
-		platform = switchblade.NewCloudFoundry(initialize, deinitialize, setup, stage, teardown, workspace)
+		platform = switchblade.NewCloudFoundry(initialize, deinitialize, setup, stage, teardown, workspace, cli)
 	})
 
 	it.After(func() {
@@ -142,11 +146,9 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 		it("executes the setup and stage phases", func() {
 			deployment, logs, err := platform.Deploy.Execute("some-app", "/some/path/to/my/app")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(deployment).To(Equal(switchblade.Deployment{
-				Name:        "some-app",
-				ExternalURL: "some-external-url",
-				InternalURL: "some-internal-url",
-			}))
+			Expect(deployment.Name).To(Equal("some-app"))
+			Expect(deployment.ExternalURL).To(Equal("some-external-url"))
+			Expect(deployment.InternalURL).To(Equal("some-internal-url"))
 			Expect(logs).To(ContainLines(
 				"Setting up...",
 				"Staging...",
@@ -160,6 +162,42 @@ func testCloudFoundry(t *testing.T, context spec.G, it spec.S) {
 			Expect(stage.RunCall.Receives.Logs).To(Equal(logs))
 			Expect(stage.RunCall.Receives.Home).To(Equal(filepath.Join(workspace, "some-app")))
 			Expect(stage.RunCall.Receives.Name).To(Equal("some-app"))
+		})
+
+		it("retrieves runtime logs from deployed application", func() {
+			cli.ExecuteCall.Stub = func(execution pexec.Execution) error {
+				if execution.Args[0] == "logs" {
+					fmt.Fprintln(execution.Stdout, "Runtime log line 1")
+					fmt.Fprintln(execution.Stdout, "Application started successfully")
+					fmt.Fprintln(execution.Stdout, "Runtime log line 3")
+				}
+				return nil
+			}
+
+			deployment, stagingLogs, err := platform.Deploy.Execute("some-app", "/some/path/to/my/app")
+			Expect(err).NotTo(HaveOccurred())
+
+			// Staging logs should contain setup/staging output
+			Expect(stagingLogs.String()).To(ContainSubstring("Setting up..."))
+			Expect(stagingLogs.String()).To(ContainSubstring("Staging..."))
+
+			// Runtime logs should contain application output
+			runtimeLogs, err := deployment.RuntimeLogs()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(runtimeLogs).To(ContainSubstring("Runtime log line 1"))
+			Expect(runtimeLogs).To(ContainSubstring("Application started successfully"))
+			Expect(runtimeLogs).To(ContainSubstring("Runtime log line 3"))
+
+			// Verify the CLI was called with the correct arguments
+			var logsCallReceived pexec.Execution
+			for i := 0; i < cli.ExecuteCall.CallCount; i++ {
+				if len(cli.ExecuteCall.Receives.Execution.Args) > 0 && cli.ExecuteCall.Receives.Execution.Args[0] == "logs" {
+					logsCallReceived = cli.ExecuteCall.Receives.Execution
+					break
+				}
+			}
+			Expect(logsCallReceived.Args).To(Equal([]string{"logs", "some-app", "--recent"}))
+			Expect(logsCallReceived.Env).To(ContainElement(ContainSubstring("CF_HOME=")))
 		})
 
 		context("WithBuildpacks", func() {

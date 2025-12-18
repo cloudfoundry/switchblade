@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/cloudfoundry/switchblade"
 	"github.com/cloudfoundry/switchblade/fakes"
 	"github.com/cloudfoundry/switchblade/internal/docker"
+	"github.com/docker/docker/api/types/container"
 	"github.com/sclevine/spec"
 
 	. "github.com/cloudfoundry/switchblade/matchers"
@@ -28,6 +30,7 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 		stage        *fakes.DockerStagePhase
 		start        *fakes.DockerStartPhase
 		teardown     *fakes.DockerTeardownPhase
+		client       *fakes.LogsClient
 	)
 
 	it.Before(func() {
@@ -37,8 +40,9 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 		stage = &fakes.DockerStagePhase{}
 		start = &fakes.DockerStartPhase{}
 		teardown = &fakes.DockerTeardownPhase{}
+		client = &fakes.LogsClient{}
 
-		platform = switchblade.NewDocker(initialize, deinitialize, setup, stage, start, teardown)
+		platform = switchblade.NewDocker(initialize, deinitialize, setup, stage, start, teardown, client)
 	})
 
 	context("Initialize", func() {
@@ -139,11 +143,9 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 				"Staging...",
 				"Starting...",
 			))
-			Expect(deployment).To(Equal(switchblade.Deployment{
-				Name:        "some-app",
-				ExternalURL: "some-external-url",
-				InternalURL: "some-internal-url",
-			}))
+			Expect(deployment.Name).To(Equal("some-app"))
+			Expect(deployment.ExternalURL).To(Equal("some-external-url"))
+			Expect(deployment.InternalURL).To(Equal("some-internal-url"))
 
 			Expect(setup.RunCall.Receives.Ctx).To(Equal(gocontext.Background()))
 			Expect(setup.RunCall.Receives.Logs).To(Equal(logs))
@@ -159,6 +161,37 @@ func testDocker(t *testing.T, context spec.G, it spec.S) {
 			Expect(start.RunCall.Receives.Logs).To(Equal(logs))
 			Expect(start.RunCall.Receives.Name).To(Equal("some-app"))
 			Expect(start.RunCall.Receives.Command).To(Equal("some-command"))
+		})
+
+		it("retrieves runtime logs from deployed application", func() {
+			client.ContainerLogsCall.Stub = func(ctx gocontext.Context, container string, options container.LogsOptions) (io.ReadCloser, error) {
+				return io.NopCloser(io.NewSectionReader(
+					strings.NewReader("Docker runtime log 1\nApplication is running\nDocker runtime log 2\n"),
+					0,
+					100,
+				)), nil
+			}
+
+			deployment, stagingLogs, err := platform.Deploy.Execute("some-app", "/some/path/to/my/app")
+			Expect(err).NotTo(HaveOccurred())
+
+			// Staging logs should contain setup/build output
+			Expect(stagingLogs.String()).To(ContainSubstring("Setting up..."))
+			Expect(stagingLogs.String()).To(ContainSubstring("Staging..."))
+			Expect(stagingLogs.String()).To(ContainSubstring("Starting..."))
+
+			// Runtime logs should contain application output
+			runtimeLogs, err := deployment.RuntimeLogs()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(runtimeLogs).To(ContainSubstring("Docker runtime log 1"))
+			Expect(runtimeLogs).To(ContainSubstring("Application is running"))
+			Expect(runtimeLogs).To(ContainSubstring("Docker runtime log 2"))
+
+			// Verify the client was called with correct parameters
+			Expect(client.ContainerLogsCall.CallCount).To(Equal(1))
+			Expect(client.ContainerLogsCall.Receives.Container).To(Equal("some-app"))
+			Expect(client.ContainerLogsCall.Receives.Options.ShowStdout).To(BeTrue())
+			Expect(client.ContainerLogsCall.Receives.Options.ShowStderr).To(BeTrue())
 		})
 
 		context("WithBuildpacks", func() {
