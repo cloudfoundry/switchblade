@@ -130,6 +130,83 @@ func testInitialize(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("when a buildpack exists for multiple stacks", func() {
+			it.Before(func() {
+				executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+					executions = append(executions, execution)
+
+					args := strings.Join(execution.Args, " ")
+					switch {
+					case strings.Contains(args, "curl /v3/buildpacks?names=some-buildpack-name"):
+						fmt.Fprint(execution.Stdout, `{"resources":[{"position": 123, "stack": "cflinuxfs4"}, {"position": 456, "stack": "cflinuxfs5"}]}`)
+					}
+
+					return nil
+				}
+			})
+
+			it("deletes each stack-specific buildpack before re-creating", func() {
+				err := initialize.Run([]cloudfoundry.Buildpack{
+					{
+						Name: "some-buildpack-name",
+						URI:  "some-buildpack-uri",
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(executions).To(HaveLen(4))
+				Expect(executions[0]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"curl", "/v3/buildpacks?names=some-buildpack-name"}),
+				}))
+				Expect(executions[1]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"delete-buildpack", "-f", "some-buildpack-name", "-s", "cflinuxfs4"}),
+				}))
+				Expect(executions[2]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"delete-buildpack", "-f", "some-buildpack-name", "-s", "cflinuxfs5"}),
+				}))
+				Expect(executions[3]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"create-buildpack", "some-buildpack-name", "some-buildpack-uri", "123"}),
+				}))
+			})
+		})
+
+		context("when a buildpack exists with a single stack", func() {
+			it.Before(func() {
+				executable.ExecuteCall.Stub = func(execution pexec.Execution) error {
+					executions = append(executions, execution)
+
+					args := strings.Join(execution.Args, " ")
+					switch {
+					case strings.Contains(args, "curl /v3/buildpacks?names=some-buildpack-name"):
+						fmt.Fprint(execution.Stdout, `{"resources":[{"position": 123, "stack": "cflinuxfs4"}]}`)
+					}
+
+					return nil
+				}
+			})
+
+			it("deletes the buildpack with the stack flag", func() {
+				err := initialize.Run([]cloudfoundry.Buildpack{
+					{
+						Name: "some-buildpack-name",
+						URI:  "some-buildpack-uri",
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(executions).To(HaveLen(3))
+				Expect(executions[0]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"curl", "/v3/buildpacks?names=some-buildpack-name"}),
+				}))
+				Expect(executions[1]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"delete-buildpack", "-f", "some-buildpack-name", "-s", "cflinuxfs4"}),
+				}))
+				Expect(executions[2]).To(MatchFields(IgnoreExtras, Fields{
+					"Args": Equal([]string{"create-buildpack", "some-buildpack-name", "some-buildpack-uri", "123"}),
+				}))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the buildpack JSON cannot be parsed", func() {
 				it.Before(func() {
@@ -170,7 +247,7 @@ func testInitialize(t *testing.T, context spec.G, it spec.S) {
 						args := strings.Join(execution.Args, " ")
 						switch {
 						case strings.Contains(args, "curl /v3/buildpacks?names=some-buildpack-name"):
-							fmt.Fprintln(execution.Stdout, "{}")
+							fmt.Fprintln(execution.Stdout, `{"resources":[{"position": 123}]}`)
 
 						case strings.Contains(args, "delete-buildpack -f some-buildpack-name"):
 							fmt.Fprintln(execution.Stderr, "something bad happened")
@@ -192,7 +269,8 @@ func testInitialize(t *testing.T, context spec.G, it spec.S) {
 							URI:  "other-buildpack-uri",
 						},
 					})
-					Expect(err).To(MatchError("failed to delete buildpack: delete-buildpack failed\n\nOutput:\n{}\nsomething bad happened\n"))
+					Expect(err).To(MatchError(ContainSubstring("failed to delete buildpack: delete-buildpack failed")))
+					Expect(err).To(MatchError(ContainSubstring("something bad happened")))
 				})
 			})
 
