@@ -8,7 +8,7 @@ require (
 	github.com/docker/docker v27.5.1+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/onsi/gomega v1.36.2
-	github.com/opencontainers/image-spec v1.1.0
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/paketo-buildpacks/packit/v2 v2.16.0
 	github.com/sclevine/spec v1.4.0
 	github.com/teris-io/shortid v0.0.0-20220617161101-71ec9f2aa569
@@ -16,8 +16,8 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.0 // indirect
+	github.com/containerd/log v0.1.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.6 // indirect
