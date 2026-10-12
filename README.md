@@ -116,6 +116,15 @@ directory changes. The three most recently used tarballs are kept. Set
 `SWITCHBLADE_DISABLE_BUILDPACK_CACHE=true` to rebuild the tarball for every
 deployment instead.
 
+Two opt-in settings speed up staging on Docker further:
+
+- `SWITCHBLADE_FAST_COMPRESSION=true` compresses the droplet and build cache
+  with the fastest gzip level. The droplet contents are unchanged, only the
+  archive is slightly larger.
+- `SWITCHBLADE_SKIP_BUILD_CACHE=true` neither restores nor saves the build
+  cache between deployments. Only use it when no test relies on the build
+  cache of an earlier deployment with the same name.
+
 ### Specifying buildpacks: `WithBuildpacks`
 
 ```go

@@ -1,6 +1,7 @@
 package docker_test
 
 import (
+	"archive/tar"
 	"bytes"
 	gocontext "context"
 	"errors"
@@ -329,6 +330,67 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 				}))
 
 				Expect(logs).To(ContainLines("Pulling image..."))
+			})
+		})
+
+		context("WithFastCompression", func() {
+			it.Before(func() {
+				setup = setup.WithFastCompression()
+			})
+
+			it("copies a gzip wrapper using the fastest level into the container", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(copyToContainerInvocations).To(HaveLen(4))
+				Expect(copyToContainerInvocations[3].ContainerID).To(Equal("some-container-id"))
+				Expect(copyToContainerInvocations[3].DstPath).To(Equal("/"))
+
+				tr := tar.NewReader(strings.NewReader(copyToContainerInvocations[3].Content))
+				hdr, err := tr.Next()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(hdr.Name).To(Equal("usr/local/bin/gzip"))
+				Expect(hdr.Mode).To(Equal(int64(0755)))
+
+				content, err := io.ReadAll(tr)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(Equal("#!/bin/sh\nexec /usr/bin/gzip -1 \"$@\"\n"))
+
+				_, err = tr.Next()
+				Expect(err).To(Equal(io.EOF))
+
+				Expect(client.ContainerCreateCall.Receives.Config.Env).To(Equal([]string{
+					"CF_STACK=default-stack",
+					"VCAP_SERVICES={}",
+				}))
+			})
+		})
+
+		context("WithoutBuildCache", func() {
+			it.Before(func() {
+				Expect(os.Mkdir(filepath.Join(workspace, "build-cache"), os.ModePerm)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(workspace, "build-cache", "some-app.tar.gz"), []byte("cache-content"), 0600)).To(Succeed())
+
+				setup = setup.WithoutBuildCache()
+			})
+
+			it("discards the build cache output and does not copy a build cache into the container", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				_, err := setup.Run(ctx, logs, "some-app", "/some/path/to/my/app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(client.ContainerCreateCall.Receives.Config.Cmd).To(ContainElement("--outputBuildArtifactsCache=/dev/null"))
+				Expect(client.ContainerCreateCall.Receives.Config.Cmd).NotTo(ContainElement("--outputBuildArtifactsCache=/tmp/output-cache"))
+
+				Expect(copyToContainerInvocations).To(HaveLen(3))
+				for _, invocation := range copyToContainerInvocations {
+					Expect(invocation.Content).NotTo(Equal("cache-content"))
+				}
 			})
 		})
 

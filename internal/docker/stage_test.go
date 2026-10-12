@@ -139,6 +139,31 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			Expect(string(content)).To(Equal("some-cache-contents"))
 		})
 
+		context("WithoutBuildCache", func() {
+			it.Before(func() {
+				stage = stage.WithoutBuildCache()
+			})
+
+			it("does not copy the build cache out of the container", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				command, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(command).To(Equal("some-command"))
+
+				Expect(copyFromContainerInvocations).To(HaveLen(2))
+				Expect(copyFromContainerInvocations[0].SrcPath).To(Equal("/tmp/droplet"))
+				Expect(copyFromContainerInvocations[1].SrcPath).To(Equal("/tmp/result.json"))
+
+				content, err := os.ReadFile(filepath.Join(workspace, "droplets", "some-app.tar.gz"))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(Equal("some-droplet-contents"))
+
+				Expect(filepath.Join(workspace, "build-cache", "some-app.tar.gz")).NotTo(BeAnExistingFile())
+			})
+		})
+
 		context("when the container exits with a non-zero status", func() {
 			it.Before(func() {
 				containerWaitOKBodyChannel := make(chan container.WaitResponse)
