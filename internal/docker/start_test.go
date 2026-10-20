@@ -12,7 +12,6 @@ import (
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
@@ -62,9 +61,13 @@ func testStart(t *testing.T, context spec.G, it spec.S) {
 
 				return nil
 			}
-			client.ContainerInspectCall.Returns.ContainerJSON = types.ContainerJSON{
-				NetworkSettings: &types.NetworkSettings{
-					NetworkSettingsBase: types.NetworkSettingsBase{
+			client.ContainerInspectCall.Returns.ContainerJSON = container.InspectResponse{
+				NetworkSettings: &container.NetworkSettings{
+					// Ports has no replacement field yet: docker/docker documents it
+					// moving onto NetworkSettings directly "in v29.0", but no v29
+					// release exists and no date is scheduled (checked 2026-10-19,
+					// latest tag v28.5.2). Revisit when a replacement ships.
+					NetworkSettingsBase: container.NetworkSettingsBase{ //nolint:staticcheck
 						Ports: nat.PortMap{
 							"8080/tcp": []nat.PortBinding{
 								{
