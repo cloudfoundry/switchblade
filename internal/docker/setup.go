@@ -109,6 +109,10 @@ func NewSetup(client SetupClient, lifecycle LifecycleBuilder, buildpacks Buildpa
 }
 
 func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (string, error) {
+	if err := validateName(name); err != nil {
+		return "", fmt.Errorf("invalid app name: %w", err)
+	}
+
 	lifecycle, err := s.lifecycle.Build(BuildpackAppLifecycleRepoURL, filepath.Join(s.workspace, "lifecycle"))
 	if err != nil {
 		return "", fmt.Errorf("failed to build lifecycle: %w", err)

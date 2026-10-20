@@ -51,6 +51,10 @@ func (s Stage) WithoutBuildCache() Stage {
 }
 
 func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string) (string, error) {
+	if err := validateName(name); err != nil {
+		return "", fmt.Errorf("invalid app name: %w", err)
+	}
+
 	err := s.client.ContainerStart(ctx, containerID, container.StartOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to start container: %w", err)

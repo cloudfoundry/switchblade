@@ -174,6 +174,22 @@ func testTeardown(t *testing.T, context spec.G, it spec.S) {
 					Expect(err).To(MatchError("failed to remove container: could not remove container"))
 				})
 			})
+
+			context("when the name would escape the workspace", func() {
+				it("rejects the name before touching the filesystem", func() {
+					ctx := gocontext.Background()
+
+					err := teardown.Run(ctx, "../../etc")
+					Expect(err).To(MatchError(ContainSubstring("name must not contain a path separator")))
+					Expect(client.ContainerRemoveCall.CallCount).To(Equal(0))
+
+					err = teardown.Run(ctx, "..")
+					Expect(err).To(MatchError(ContainSubstring(`name must not be ".."`)))
+
+					err = teardown.Run(ctx, "")
+					Expect(err).To(MatchError(ContainSubstring("name must not be empty")))
+				})
+			})
 		})
 	})
 }
