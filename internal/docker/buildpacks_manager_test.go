@@ -425,6 +425,18 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
+		context("when the name would escape the workspace", func() {
+			it("rejects the name before touching the filesystem", func() {
+				_, err := manager.Build(workspace, "../../etc")
+				Expect(err).To(MatchError(ContainSubstring("name must not contain a path separator")))
+
+				_, err = manager.Build(workspace, "..")
+				Expect(err).To(MatchError(ContainSubstring(`name must not be ".."`)))
+
+				Expect(archiver.CompressCall.CallCount).To(Equal(0))
+			})
+		})
+
 		context("failure cases", func() {
 			context("when the registry cannot list the buildpacks", func() {
 				it.Before(func() {
