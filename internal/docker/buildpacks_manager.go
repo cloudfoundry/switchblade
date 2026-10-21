@@ -75,6 +75,10 @@ const (
 // hard-links it per app. Rebuilding the tarball for every app is very slow for
 // large cached buildpacks.
 func (m BuildpacksManager) Build(workspace, name string) (string, error) {
+	if err := validateName(name); err != nil {
+		return "", fmt.Errorf("invalid app name: %w", err)
+	}
+
 	buildpacks, err := m.registry.List()
 	if err != nil {
 		return "", fmt.Errorf("failed to list buildpacks: %w", err)
@@ -98,6 +102,15 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 	output := filepath.Join(workspace, fmt.Sprintf("%s.tar.gz", name))
 
 	if m.disableSharing {
+		// output may be a hard link to a shared tarball left over from an
+		// earlier build of this app with sharing enabled. Remove it first so
+		// buildTarball's os.Create does not truncate that shared file in
+		// place for every other app still linked to it.
+		err = os.Remove(output)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("failed to remove existing buildpacks tarball: %w", err)
+		}
+
 		err = m.buildTarball(filepath.Join(workspace, name), output, selected)
 		if err != nil {
 			return "", err
@@ -111,9 +124,12 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 		return "", err
 	}
 
-	// Shared artifacts live in their own subdirectory so an app name cannot
-	// collide with a shared tarball or temporary file name.
-	sharedDir := filepath.Join(workspace, "shared")
+	// Shared artifacts live in a directory next to workspace (which holds
+	// per-app directories and tarballs named after apps), so an app name --
+	// including "shared" itself -- can never collide with the shared
+	// tarball directory, its temporary files, or trigger its deletion via
+	// Teardown's per-app os.RemoveAll(workspace/<name>).
+	sharedDir := filepath.Join(filepath.Dir(workspace), "buildpacks-shared")
 	err = os.MkdirAll(sharedDir, os.ModePerm)
 	if err != nil {
 		return "", fmt.Errorf("failed to create shared buildpacks directory: %w", err)

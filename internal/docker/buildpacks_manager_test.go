@@ -31,6 +31,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 		archiver  *fakes.Archiver
 		cache     *fakes.BPCache
 		registry  *fakes.BPRegistry
+		root      string
 		workspace string
 
 		cacheFetchInvocations []cacheFetchInvocation
@@ -38,8 +39,15 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 
 	it.Before(func() {
 		var err error
-		workspace, err = os.MkdirTemp("", "workspace")
+		root, err = os.MkdirTemp("", "workspace")
 		Expect(err).NotTo(HaveOccurred())
+
+		// workspace mirrors the "buildpacks" subdirectory Setup.Run passes
+		// to BuildpacksManager.Build, so sharedDir (a sibling of workspace)
+		// lands next to it inside root rather than leaking into the
+		// system temp directory.
+		workspace = filepath.Join(root, "buildpacks")
+		Expect(os.MkdirAll(workspace, os.ModePerm)).To(Succeed())
 
 		Expect(os.Mkdir(filepath.Join(workspace, "some-buildpack"), os.ModePerm)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(workspace, "some-buildpack", "some-file"), []byte("some-content"), 0600)).To(Succeed())
@@ -105,7 +113,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 	})
 
 	it.After(func() {
-		Expect(os.RemoveAll(workspace)).To(Succeed())
+		Expect(os.RemoveAll(root)).To(Succeed())
 	})
 
 	context("Build", func() {
@@ -121,7 +129,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 		)
 
 		sharedTarballs := func() []string {
-			paths, err := filepath.Glob(filepath.Join(workspace, "shared", "*.tar.gz"))
+			paths, err := filepath.Glob(filepath.Join(root, "buildpacks-shared", "*.tar.gz"))
 			Expect(err).NotTo(HaveOccurred())
 			return paths
 		}
@@ -170,8 +178,8 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			}))
 
 			Expect(archiver.WithPrefixCall.Receives.Prefix).To(Equal("/tmp/buildpacks"))
-			Expect(archiver.CompressCall.Receives.Input).To(MatchRegexp(`^%s/[0-9a-f]{64}\.[0-9]+-[0-9]+\.staging$`, regexp.QuoteMeta(filepath.Join(workspace, "shared"))))
-			Expect(archiver.CompressCall.Receives.Output).To(MatchRegexp(`^%s/[0-9a-f]{64}\.tar\.gz\.[0-9]+-[0-9]+\.tmp$`, regexp.QuoteMeta(filepath.Join(workspace, "shared"))))
+			Expect(archiver.CompressCall.Receives.Input).To(MatchRegexp(`^%s/[0-9a-f]{64}\.[0-9]+-[0-9]+\.staging$`, regexp.QuoteMeta(filepath.Join(root, "buildpacks-shared"))))
+			Expect(archiver.CompressCall.Receives.Output).To(MatchRegexp(`^%s/[0-9a-f]{64}\.tar\.gz\.[0-9]+-[0-9]+\.tmp$`, regexp.QuoteMeta(filepath.Join(root, "buildpacks-shared"))))
 			Expect(compressed).To(Equal([]map[string]string{allBuildpacks}))
 
 			shared := sharedTarballs()
@@ -183,7 +191,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(os.SameFile(sharedInfo, outputInfo)).To(BeTrue())
 
-			leftovers, err := filepath.Glob(filepath.Join(workspace, "shared", "*"))
+			leftovers, err := filepath.Glob(filepath.Join(root, "buildpacks-shared", "*"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(leftovers).To(Equal(shared))
 			Expect(filepath.Join(workspace, "some-app", "fb563133b31055c118e0f46f44578ed9")).NotTo(BeADirectory())
@@ -325,7 +333,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			_, err := manager.Build(workspace, "some-app")
 			Expect(err).NotTo(HaveOccurred())
 
-			stale := filepath.Join(workspace, "shared", "0000000000000000.1-1.staging")
+			stale := filepath.Join(root, "buildpacks-shared", "0000000000000000.1-1.staging")
 			Expect(os.Mkdir(stale, os.ModePerm)).To(Succeed())
 			old := time.Now().Add(-2 * time.Hour)
 			Expect(os.Chtimes(stale, old, old)).To(Succeed())
@@ -338,14 +346,14 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 		})
 
 		it("removes stale temporary files but keeps recent ones", func() {
-			Expect(os.MkdirAll(filepath.Join(workspace, "shared"), os.ModePerm)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(root, "buildpacks-shared"), os.ModePerm)).To(Succeed())
 
-			stale := filepath.Join(workspace, "shared", "0000000000000000.1-1.staging")
+			stale := filepath.Join(root, "buildpacks-shared", "0000000000000000.1-1.staging")
 			Expect(os.Mkdir(stale, os.ModePerm)).To(Succeed())
 			old := time.Now().Add(-2 * time.Hour)
 			Expect(os.Chtimes(stale, old, old)).To(Succeed())
 
-			recent := filepath.Join(workspace, "shared", "1111111111111111.tar.gz.1-2.tmp")
+			recent := filepath.Join(root, "buildpacks-shared", "1111111111111111.tar.gz.1-2.tmp")
 			Expect(os.WriteFile(recent, []byte("in progress"), 0600)).To(Succeed())
 
 			_, err := manager.Build(workspace, "some-app")
@@ -393,6 +401,51 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 
 				Expect(archiver.CompressCall.CallCount).To(Equal(2))
 				Expect(sharedTarballs()).To(BeEmpty())
+			})
+
+			it("does not corrupt a shared tarball that another app is still linked to", func() {
+				// some-app and other-app share the same tarball via a hard link.
+				someApp, err := manager.Build(workspace, "some-app")
+				Expect(err).NotTo(HaveOccurred())
+
+				otherApp, err := manager.Build(workspace, "other-app")
+				Expect(err).NotTo(HaveOccurred())
+
+				shared := sharedTarballs()
+				Expect(shared).To(HaveLen(1))
+
+				sharedInfo, err := os.Stat(shared[0])
+				Expect(err).NotTo(HaveOccurred())
+				someAppInfo, err := os.Stat(someApp)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(os.SameFile(sharedInfo, someAppInfo)).To(BeTrue())
+
+				// Rebuilding some-app without sharing must not truncate the
+				// shared tarball in place, which would corrupt it for
+				// other-app and the shared cache itself.
+				_, err = manager.WithoutSharing().Build(workspace, "some-app")
+				Expect(err).NotTo(HaveOccurred())
+
+				content, err := os.ReadFile(otherApp)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(Equal("tarball-1"))
+
+				content, err = os.ReadFile(shared[0])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(Equal("tarball-1"))
+			})
+		})
+
+		context("when an app is named \"shared\"", func() {
+			it("rejects the name instead of risking collision with the shared tarball directory", func() {
+				_, err := manager.Build(workspace, "shared")
+				Expect(err).To(MatchError(ContainSubstring(`name "shared" is reserved`)))
+
+				_, err = manager.Build(workspace, "other-app")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(archiver.CompressCall.CallCount).To(Equal(1))
+				Expect(sharedTarballs()).To(HaveLen(1))
 			})
 		})
 
@@ -456,7 +509,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 					_, err := manager.Build(workspace, "some-app")
 					Expect(err).To(MatchError("failed to archive buildpacks: could not compress buildpacks"))
 
-					leftovers, err := filepath.Glob(filepath.Join(workspace, "shared", "*"))
+					leftovers, err := filepath.Glob(filepath.Join(root, "buildpacks-shared", "*"))
 					Expect(err).NotTo(HaveOccurred())
 					Expect(leftovers).To(BeEmpty())
 				})
