@@ -1,0 +1,59 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [Unreleased]
+
+### Added
+- Docker platform: buildpacks are now cached as a shared, content-addressed
+  tarball and reused across all apps that need the same buildpack set,
+  instead of being rebuilt per app. Significantly reduces build time and
+  disk use on repeated/parallel deployments. Internal to the Docker
+  platform; no public API changes. (#136)
+- Docker platform: new opt-in environment variables for integration test
+  runs:
+  - `SWITCHBLADE_FAST_COMPRESSION` — trades some compression ratio for
+    significantly faster tarball builds.
+  - `SWITCHBLADE_SKIP_BUILD_CACHE` — skips restoring the build cache layer
+    for faster, cold-cache-style runs.
+
+  Both default to current behavior when unset. (#137)
+- Docker platform: app names are validated against path traversal and
+  reserved names (`shared`, `buildpacks-shared`) before being used to
+  construct filesystem paths, preventing a maliciously or accidentally
+  named app from corrupting the shared build cache or escaping its
+  staging directory. (#137)
+
+### Fixed
+- Docker platform: the shared buildpack cache key now uses the full
+  256-bit SHA-256 digest instead of a 64-bit truncation, removing the
+  risk of two distinct buildpack sets colliding on the same cache key.
+  (#136)
+- Docker platform: symlinked local/directory buildpacks are now copied
+  by their resolved real path, so the packaged tarball contains the full
+  directory contents instead of a broken symlink stub. (#136)
+- Docker platform: stale leftover build artifacts from killed or crashed
+  processes are now cleaned up on every build, including cache hits, not
+  only on cache misses. (#136)
+
+### Changed
+- Dependencies bumped: `github.com/onsi/gomega` v1.36.2 → v1.42.0,
+  `github.com/opencontainers/image-spec` v1.1.0 → v1.1.1,
+  `github.com/paketo-buildpacks/packit/v2` v2.16.0 → v2.25.3,
+  `github.com/docker/go-connections` v0.4.0 → v0.8.2; `go` directive
+  1.23.0 → 1.24.6. Versions were capped below the next major bump
+  (`packit/v2` v2.25.4+, `gomega` v1.43.0+) because those require
+  Go ≥ 1.25, which this project's pinned `golangci-lint` cannot lint.
+  (#139)
+
+### Upgrade notes
+- No breaking API changes in this release. A routine
+  `go get github.com/cloudfoundry/switchblade@latest` should be safe for
+  all consuming buildpacks (java, nodejs, python, ruby, go, php, etc.).
+- If a consuming buildpack's own `go.mod` also requires `packit/v2`
+  directly, check its pinned version against the Go-1.24 ceiling noted
+  above before bumping, to avoid an unplanned toolchain/lint bump.
+- `SWITCHBLADE_FAST_COMPRESSION` and `SWITCHBLADE_SKIP_BUILD_CACHE` are
+  purely additive and inert unless a buildpack's CI pipeline sets them.
