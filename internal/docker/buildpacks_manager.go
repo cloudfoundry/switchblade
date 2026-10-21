@@ -213,7 +213,7 @@ func buildpacksKey(buildpacks []Buildpack) (string, error) {
 		}
 	}
 
-	return hex.EncodeToString(hash.Sum(nil))[:16], nil
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // removeStaleTemp removes temporary staging directories and tmp files older
@@ -332,7 +332,16 @@ func (m BuildpacksManager) buildTarball(staging, output string, buildpacks []Bui
 		destination := filepath.Join(staging, fmt.Sprintf("%x", md5.Sum([]byte(buildpack.Name))))
 
 		if isDir {
-			err = fs.Copy(buildpack.URI, destination)
+			// filepath.Walk (used internally by fs.Copy) does not follow
+			// symbolic links, so a symlinked buildpack.URI would only
+			// yield a single symlink entry instead of its contents.
+			// Resolve to the real path first, matching buildpacksKey.
+			source, err := filepath.EvalSymlinks(buildpack.URI)
+			if err != nil {
+				return fmt.Errorf("failed to resolve buildpack directory: %w", err)
+			}
+
+			err = fs.Copy(source, destination)
 			if err != nil {
 				return fmt.Errorf("failed to copy buildpack: %w", err)
 			}

@@ -3,6 +3,7 @@ package docker_test
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"io"
@@ -53,7 +54,7 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 		cache.FetchCall.Stub = func(url string) (io.ReadCloser, error) {
 			cacheFetchInvocations = append(cacheFetchInvocations, cacheFetchInvocation{URL: url})
 
-			if url == filepath.Join(workspace, "some-buildpack") {
+			if info, err := os.Stat(url); err == nil && info.IsDir() {
 				fd, err := os.Open(url)
 				if err != nil {
 					return nil, err
@@ -169,8 +170,8 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			}))
 
 			Expect(archiver.WithPrefixCall.Receives.Prefix).To(Equal("/tmp/buildpacks"))
-			Expect(archiver.CompressCall.Receives.Input).To(MatchRegexp(`^%s/[0-9a-f]{16}\.[0-9]+-[0-9]+\.staging$`, regexp.QuoteMeta(filepath.Join(workspace, "shared"))))
-			Expect(archiver.CompressCall.Receives.Output).To(MatchRegexp(`^%s/[0-9a-f]{16}\.tar\.gz\.[0-9]+-[0-9]+\.tmp$`, regexp.QuoteMeta(filepath.Join(workspace, "shared"))))
+			Expect(archiver.CompressCall.Receives.Input).To(MatchRegexp(`^%s/[0-9a-f]{64}\.[0-9]+-[0-9]+\.staging$`, regexp.QuoteMeta(filepath.Join(workspace, "shared"))))
+			Expect(archiver.CompressCall.Receives.Output).To(MatchRegexp(`^%s/[0-9a-f]{64}\.tar\.gz\.[0-9]+-[0-9]+\.tmp$`, regexp.QuoteMeta(filepath.Join(workspace, "shared"))))
 			Expect(compressed).To(Equal([]map[string]string{allBuildpacks}))
 
 			shared := sharedTarballs()
@@ -247,6 +248,29 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 
 			Expect(archiver.CompressCall.CallCount).To(Equal(2))
 			Expect(compressed[1]).To(HaveKeyWithValue(filepath.Join("39d7879e97b51ef2020898a6a966a915", "nested", "some-file"), "other-content"))
+		})
+
+		it("bundles the full contents of a symlinked directory buildpack, not just a symlink entry", func() {
+			realDir := filepath.Join(workspace, "real-buildpack-dir")
+			Expect(os.MkdirAll(filepath.Join(realDir, "nested"), os.ModePerm)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(realDir, "nested", "some-file"), []byte("some-content"), 0600)).To(Succeed())
+
+			symlinkedDir := filepath.Join(workspace, "symlinked-buildpack-dir")
+			Expect(os.Symlink(realDir, symlinkedDir)).To(Succeed())
+
+			registry.ListCall.Returns.BuildpackSlice = []docker.Buildpack{
+				{
+					Name: "symlinked-buildpack",
+					URI:  symlinkedDir,
+				},
+			}
+
+			_, err := manager.Build(workspace, "some-app")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(compressed).To(HaveLen(1))
+			destination := fmt.Sprintf("%x", md5.Sum([]byte("symlinked-buildpack")))
+			Expect(compressed[0]).To(HaveKeyWithValue(filepath.Join(destination, "nested", "some-file"), "some-content"))
 		})
 
 		it("rebuilds when the shared tarball was removed", func() {
