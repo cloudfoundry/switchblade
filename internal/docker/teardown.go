@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
 )
 
 type TeardownPhase interface {
@@ -38,7 +38,7 @@ func (t Teardown) Run(ctx context.Context, name string) error {
 	}
 
 	err := t.client.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
-	if err != nil && !client.IsErrNotFound(err) {
+	if err != nil && !errdefs.IsNotFound(err) {
 		return fmt.Errorf("failed to remove container: %w", err)
 	}
 

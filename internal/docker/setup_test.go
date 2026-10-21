@@ -14,7 +14,6 @@ import (
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/errdefs"
@@ -276,7 +275,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 		context("when a conflicting container already exists", func() {
 			it.Before(func() {
-				client.ContainerInspectCall.Returns.ContainerJSON = types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{ID: "some-container-id"}}
+				client.ContainerInspectCall.Returns.ContainerJSON = container.InspectResponse{ContainerJSONBase: &container.ContainerJSONBase{ID: "some-container-id"}}
 				client.ContainerInspectCall.Returns.Error = nil
 			})
 
@@ -512,7 +511,7 @@ func testSetup(t *testing.T, context spec.G, it spec.S) {
 
 			context("when a conflicting container cannot be removed", func() {
 				it.Before(func() {
-					client.ContainerInspectCall.Returns.ContainerJSON = types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{ID: "some-container-id"}}
+					client.ContainerInspectCall.Returns.ContainerJSON = container.InspectResponse{ContainerJSONBase: &container.ContainerJSONBase{ID: "some-container-id"}}
 					client.ContainerInspectCall.Returns.Error = nil
 					client.ContainerRemoveCall.Returns.Error = errors.New("could not remove container")
 				})
