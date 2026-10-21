@@ -5,7 +5,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
@@ -39,10 +38,10 @@ type SetupClient struct {
 			ContainerID string
 		}
 		Returns struct {
-			ContainerJSON types.ContainerJSON
+			ContainerJSON container.InspectResponse
 			Error         error
 		}
-		Stub func(context.Context, string) (types.ContainerJSON, error)
+		Stub func(context.Context, string) (container.InspectResponse, error)
 	}
 	ContainerRemoveCall struct {
 		mutex     sync.Mutex
@@ -103,7 +102,7 @@ func (f *SetupClient) ContainerCreate(param1 context.Context, param2 *container.
 	}
 	return f.ContainerCreateCall.Returns.CreateResponse, f.ContainerCreateCall.Returns.Error
 }
-func (f *SetupClient) ContainerInspect(param1 context.Context, param2 string) (types.ContainerJSON, error) {
+func (f *SetupClient) ContainerInspect(param1 context.Context, param2 string) (container.InspectResponse, error) {
 	f.ContainerInspectCall.mutex.Lock()
 	defer f.ContainerInspectCall.mutex.Unlock()
 	f.ContainerInspectCall.CallCount++
