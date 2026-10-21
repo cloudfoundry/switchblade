@@ -100,10 +100,10 @@ func NewPlatform(platformType, token, stack string) (Platform, error) {
 		deinitialize := docker.NewDeinitialize(networkManager)
 		setup := docker.NewSetup(dockerClient, lifecycleManager, buildpacksManager, archiver, networkManager, workspace, stack)
 		stage := docker.NewStage(dockerClient, archiver, workspace)
-		if enabled, _ := strconv.ParseBool(os.Getenv(docker.FastCompressionEnv)); enabled {
+		if full, _ := strconv.ParseBool(os.Getenv(docker.FullCompressionEnv)); !full {
 			setup = setup.WithFastCompression()
 		}
-		if skip, _ := strconv.ParseBool(os.Getenv(docker.SkipBuildCacheEnv)); skip {
+		if enabled, _ := strconv.ParseBool(os.Getenv(docker.EnableBuildCacheEnv)); !enabled {
 			setup = setup.WithoutBuildCache()
 			stage = stage.WithoutBuildCache()
 		}

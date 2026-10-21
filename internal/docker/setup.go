@@ -23,14 +23,16 @@ const (
 	BuildpackAppLifecycleRepoURL = "https://github.com/cloudfoundry/buildpackapplifecycle/archive/refs/heads/main.zip"
 	BridgeNetworkName            = "bridge"
 
-	// FastCompressionEnv, when set to a true value, compresses the droplet
-	// and build cache with the fastest gzip level during staging.
-	FastCompressionEnv = "SWITCHBLADE_FAST_COMPRESSION"
+	// FullCompressionEnv, when set to a true value, opts out of the default
+	// fastest gzip level and compresses the droplet and build cache at the
+	// default level during staging instead.
+	FullCompressionEnv = "SWITCHBLADE_FULL_COMPRESSION"
 
-	// SkipBuildCacheEnv, when set to a true value, neither restores nor saves
-	// the build cache. Only use it when no deployment relies on the cache of
-	// an earlier deployment with the same name.
-	SkipBuildCacheEnv = "SWITCHBLADE_SKIP_BUILD_CACHE"
+	// EnableBuildCacheEnv, when set to a true value, opts out of the default
+	// of skipping the build cache, restoring and saving it between
+	// deployments instead. Only opt out of skipping when a deployment relies
+	// on the cache of an earlier deployment with the same name.
+	EnableBuildCacheEnv = "SWITCHBLADE_ENABLE_BUILD_CACHE"
 )
 
 // fastGzipWrapper takes precedence over /usr/bin/gzip on the stack PATH, so
