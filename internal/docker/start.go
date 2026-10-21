@@ -58,6 +58,10 @@ func NewStart(client StartClient, networks StartNetworkManager, workspace, stack
 }
 
 func (s Start) Run(ctx context.Context, logs io.Writer, name, command string) (string, string, error) {
+	if err := validateName(name); err != nil {
+		return "", "", fmt.Errorf("invalid app name: %w", err)
+	}
+
 	env := []string{
 		"LANG=en_US.UTF-8",
 		"MEMORY_LIMIT=1024m",
