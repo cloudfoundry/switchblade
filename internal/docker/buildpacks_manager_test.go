@@ -197,6 +197,21 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			Expect(filepath.Join(workspace, "some-app", "fb563133b31055c118e0f46f44578ed9")).NotTo(BeADirectory())
 		})
 
+		it("creates the workspace directory on a fresh installation", func() {
+			Expect(os.RemoveAll(workspace)).To(Succeed())
+
+			registry.ListCall.Returns.BuildpackSlice = []docker.Buildpack{
+				{
+					Name: "ruby-buildpack",
+					URI:  "some-ruby-uri",
+				},
+			}
+
+			buildpacks, err := manager.Build(workspace, "some-app")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(buildpacks).To(BeARegularFile())
+		})
+
 		it("reuses the shared tarball for other apps", func() {
 			first, err := manager.Build(workspace, "some-app")
 			Expect(err).NotTo(HaveOccurred())

@@ -101,6 +101,16 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 
 	output := filepath.Join(workspace, fmt.Sprintf("%s.tar.gz", name))
 
+	// workspace may not exist yet on a fresh installation. buildTarball
+	// creates it implicitly for the opt-out path via its staging directory,
+	// but the sharing path below only creates the sibling sharedDir, so
+	// workspace must be created explicitly before linking or copying the
+	// shared tarball into it.
+	err = os.MkdirAll(workspace, os.ModePerm)
+	if err != nil {
+		return "", fmt.Errorf("failed to create buildpacks workspace: %w", err)
+	}
+
 	if m.disableSharing {
 		// output may be a hard link to a shared tarball left over from an
 		// earlier build of this app with sharing enabled. Remove it first so
