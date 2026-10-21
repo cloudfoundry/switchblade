@@ -399,6 +399,51 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 				Expect(archiver.CompressCall.CallCount).To(Equal(2))
 				Expect(sharedTarballs()).To(HaveLen(2))
 			})
+
+			it("does not reuse the cache for a relative local buildpack from a different working directory", func() {
+				// os.Chdir mutates process-wide state, so this spec must not
+				// run in parallel with the rest of the (parallel) suite.
+				cwd, err := os.Getwd()
+				Expect(err).NotTo(HaveOccurred())
+				defer func() {
+					Expect(os.Chdir(cwd)).To(Succeed())
+				}()
+
+				dirA, err := os.MkdirTemp("", "dir-a")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.RemoveAll(dirA)
+
+				dirB, err := os.MkdirTemp("", "dir-b")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.RemoveAll(dirB)
+
+				// Same size, same mtime, different content: a relative URI
+				// would hash identically in both directories without
+				// resolving to an absolute path first.
+				mtime := time.Now().Add(-time.Hour)
+				Expect(os.WriteFile(filepath.Join(dirA, "buildpack.zip"), []byte("content-aaa"), 0600)).To(Succeed())
+				Expect(os.Chtimes(filepath.Join(dirA, "buildpack.zip"), mtime, mtime)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(dirB, "buildpack.zip"), []byte("content-bbb"), 0600)).To(Succeed())
+				Expect(os.Chtimes(filepath.Join(dirB, "buildpack.zip"), mtime, mtime)).To(Succeed())
+
+				registry.ListCall.Returns.BuildpackSlice = []docker.Buildpack{
+					{
+						Name: "local-buildpack",
+						URI:  "buildpack.zip",
+					},
+				}
+
+				Expect(os.Chdir(dirA)).To(Succeed())
+				_, err = manager.Build(workspace, "app-a")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(os.Chdir(dirB)).To(Succeed())
+				_, err = manager.Build(workspace, "app-b")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(archiver.CompressCall.CallCount).To(Equal(2))
+				Expect(sharedTarballs()).To(HaveLen(2))
+			}, spec.Sequential())
 		})
 
 		context("WithoutSharing", func() {

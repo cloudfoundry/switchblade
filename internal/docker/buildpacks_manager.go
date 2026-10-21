@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -200,7 +201,24 @@ func buildpacksKey(buildpacks []Buildpack) (string, error) {
 
 	hash := sha256.New()
 	for _, buildpack := range sorted {
-		fmt.Fprintf(hash, "%s|%s\n", buildpack.Name, buildpack.URI)
+		identity := buildpack.URI
+
+		// BuildpacksCache.Fetch treats a URI without a URL scheme as a local
+		// path and opens it relative to the current working directory. Two
+		// processes with different working directories can supply the same
+		// relative path for different files, so key on the absolute path for
+		// local buildpacks to avoid a false cache hit. Remote URIs are
+		// already globally unambiguous and are kept as-is.
+		if u, err := url.Parse(buildpack.URI); err == nil && !u.IsAbs() {
+			abs, err := filepath.Abs(buildpack.URI)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve buildpack path: %w", err)
+			}
+
+			identity = abs
+		}
+
+		fmt.Fprintf(hash, "%s|%s\n", buildpack.Name, identity)
 
 		info, err := os.Stat(buildpack.URI)
 		if err != nil {
