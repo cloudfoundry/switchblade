@@ -1,6 +1,8 @@
 package docker
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -20,7 +22,23 @@ import (
 const (
 	BuildpackAppLifecycleRepoURL = "https://github.com/cloudfoundry/buildpackapplifecycle/archive/refs/heads/main.zip"
 	BridgeNetworkName            = "bridge"
+
+	// FullCompressionEnv, when set to a true value, opts out of the default
+	// fastest gzip level and compresses the droplet and build cache at the
+	// default level during staging instead.
+	FullCompressionEnv = "SWITCHBLADE_FULL_COMPRESSION"
+
+	// EnableBuildCacheEnv, when set to a true value, opts out of the default
+	// of skipping the build cache, restoring and saving it between
+	// deployments instead. Only opt out of skipping when a deployment relies
+	// on the cache of an earlier deployment with the same name.
+	EnableBuildCacheEnv = "SWITCHBLADE_ENABLE_BUILD_CACHE"
 )
+
+// fastGzipWrapper takes precedence over /usr/bin/gzip on the stack PATH, so
+// that the lifecycle's "tar -czf" uses the fastest compression level. An
+// explicit level passed by a caller still wins, as gzip uses the last one.
+const fastGzipWrapper = "#!/bin/sh\nexec /usr/bin/gzip -1 \"$@\"\n"
 
 type SetupPhase interface {
 	Run(ctx context.Context, logs io.Writer, name, path string) (containerID string, err error)
@@ -75,6 +93,8 @@ type Setup struct {
 	env                map[string]string
 	disconnectInternet bool
 	services           map[string]map[string]interface{}
+	fastCompression    bool
+	skipBuildCache     bool
 }
 
 func NewSetup(client SetupClient, lifecycle LifecycleBuilder, buildpacks BuildpacksBuilder, archiver Archiver, networks SetupNetworkManager, workspace, stack string) Setup {
@@ -90,6 +110,10 @@ func NewSetup(client SetupClient, lifecycle LifecycleBuilder, buildpacks Buildpa
 }
 
 func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (string, error) {
+	if err := validateName(name); err != nil {
+		return "", fmt.Errorf("invalid app name: %w", err)
+	}
+
 	lifecycle, err := s.lifecycle.Build(BuildpackAppLifecycleRepoURL, filepath.Join(s.workspace, "lifecycle"))
 	if err != nil {
 		return "", fmt.Errorf("failed to build lifecycle: %w", err)
@@ -165,6 +189,11 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 		}
 	}
 
+	outputCache := "/tmp/output-cache"
+	if s.skipBuildCache {
+		outputCache = "/dev/null"
+	}
+
 	containerConfig := container.Config{
 		Image: fmt.Sprintf("cloudfoundry/%s:latest", s.stack),
 		Cmd: []string{
@@ -173,7 +202,7 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 			"--buildDir=/tmp/app",
 			fmt.Sprintf("--buildpackOrder=%s", order),
 			"--buildpacksDir=/tmp/buildpacks",
-			"--outputBuildArtifactsCache=/tmp/output-cache",
+			fmt.Sprintf("--outputBuildArtifactsCache=%s", outputCache),
 			"--outputDroplet=/tmp/droplet",
 			"--outputMetadata=/tmp/result.json",
 			fmt.Sprintf("--skipDetect=%t", skipDetect),
@@ -201,10 +230,12 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 
 	tarballs := []string{lifecycle, buildpacks, source}
 
-	buildCachePath := filepath.Join(s.workspace, "build-cache", fmt.Sprintf("%s.tar.gz", name))
-	_, err = os.Stat(buildCachePath)
-	if err == nil {
-		tarballs = append(tarballs, buildCachePath)
+	if !s.skipBuildCache {
+		buildCachePath := filepath.Join(s.workspace, "build-cache", fmt.Sprintf("%s.tar.gz", name))
+		_, err = os.Stat(buildCachePath)
+		if err == nil {
+			tarballs = append(tarballs, buildCachePath)
+		}
 	}
 
 	for _, tarballPath := range tarballs {
@@ -224,7 +255,59 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 		}
 	}
 
+	if s.fastCompression {
+		wrapper, err := fastGzipTarball()
+		if err != nil {
+			return "", fmt.Errorf("failed to create gzip wrapper: %w", err)
+		}
+
+		err = s.client.CopyToContainer(ctx, resp.ID, "/", wrapper, container.CopyToContainerOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to copy gzip wrapper to container: %w", err)
+		}
+	}
+
 	return resp.ID, nil
+}
+
+func fastGzipTarball() (io.Reader, error) {
+	buffer := bytes.NewBuffer(nil)
+	tw := tar.NewWriter(buffer)
+	err := tw.WriteHeader(&tar.Header{
+		Name:     "usr/local/bin/gzip",
+		Mode:     0755,
+		Size:     int64(len(fastGzipWrapper)),
+		Typeflag: tar.TypeReg,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tw.Write([]byte(fastGzipWrapper))
+	if err != nil {
+		return nil, err
+	}
+
+	err = tw.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer, nil
+}
+
+// WithFastCompression makes the lifecycle compress the droplet and build
+// cache with the fastest gzip level. The droplet contents are unchanged.
+func (s Setup) WithFastCompression() Setup {
+	s.fastCompression = true
+	return s
+}
+
+// WithoutBuildCache neither restores a build cache into the staging
+// container nor lets the lifecycle archive one.
+func (s Setup) WithoutBuildCache() Setup {
+	s.skipBuildCache = true
+	return s
 }
 
 func (s Setup) WithBuildpacks(buildpacks ...string) SetupPhase {
