@@ -119,9 +119,14 @@ deployment instead.
 Two settings speed up staging on Docker by default:
 
 - Droplet and build cache compress with the fastest gzip level. The droplet
-  contents are unchanged, only the archive is slightly larger. Set
-  `SWITCHBLADE_FULL_COMPRESSION=true` to opt out and use the default
-  compression level instead.
+  contents are unchanged, only the archive is slightly larger. The lifecycle
+  runs `tar -czf`, which takes no compression level, and the `GZIP`
+  environment variable is deprecated. So Switchblade copies a small wrapper,
+  `exec /usr/bin/gzip -1 "$@"`, to `/usr/local/bin/gzip` in each staging
+  container (not on the host), ahead of `/usr/bin` on the stack `PATH`. A
+  buildpack that runs `gzip` during staging also gets level 1, unless it
+  passes its own level. Set `SWITCHBLADE_FULL_COMPRESSION=true` to opt out and
+  use the default compression level instead.
 - The build cache is neither restored nor saved between deployments. Set
   `SWITCHBLADE_ENABLE_BUILD_CACHE=true` to opt out and restore/save it as
   before. Only opt out when a test relies on the build cache of an earlier
