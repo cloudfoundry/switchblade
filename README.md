@@ -109,6 +109,13 @@ func TestDocker(t *testing.T) {
 }
 ```
 
+On Docker, the buildpacks are bundled into a tarball under
+`~/.switchblade/buildpacks` that is built once per set of buildpacks and
+reused by every deployment. It is rebuilt when a local buildpack zip or
+directory changes. The three most recently used tarballs are kept. Set
+`SWITCHBLADE_DISABLE_BUILDPACK_CACHE=true` to rebuild the tarball for every
+deployment instead.
+
 ### Specifying buildpacks: `WithBuildpacks`
 
 ```go
