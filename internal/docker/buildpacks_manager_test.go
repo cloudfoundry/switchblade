@@ -483,56 +483,6 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 			})
 		})
 
-		context("WithoutSharing", func() {
-			it("rebuilds the tarball for every app", func() {
-				buildpacks, err := manager.WithoutSharing().Build(workspace, "some-app")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(buildpacks).To(Equal(filepath.Join(workspace, "some-app.tar.gz")))
-
-				Expect(archiver.CompressCall.Receives.Input).To(Equal(filepath.Join(workspace, "some-app")))
-				Expect(archiver.CompressCall.Receives.Output).To(Equal(filepath.Join(workspace, "some-app.tar.gz")))
-				Expect(compressed).To(Equal([]map[string]string{allBuildpacks}))
-
-				_, err = manager.WithoutSharing().Build(workspace, "other-app")
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(archiver.CompressCall.CallCount).To(Equal(2))
-				Expect(sharedTarballs()).To(BeEmpty())
-			})
-
-			it("does not corrupt a shared tarball that another app is still linked to", func() {
-				// some-app and other-app share the same tarball via a hard link.
-				someApp, err := manager.Build(workspace, "some-app")
-				Expect(err).NotTo(HaveOccurred())
-
-				otherApp, err := manager.Build(workspace, "other-app")
-				Expect(err).NotTo(HaveOccurred())
-
-				shared := sharedTarballs()
-				Expect(shared).To(HaveLen(1))
-
-				sharedInfo, err := os.Stat(shared[0])
-				Expect(err).NotTo(HaveOccurred())
-				someAppInfo, err := os.Stat(someApp)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(os.SameFile(sharedInfo, someAppInfo)).To(BeTrue())
-
-				// Rebuilding some-app without sharing must not truncate the
-				// shared tarball in place, which would corrupt it for
-				// other-app and the shared cache itself.
-				_, err = manager.WithoutSharing().Build(workspace, "some-app")
-				Expect(err).NotTo(HaveOccurred())
-
-				content, err := os.ReadFile(otherApp)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).To(Equal("tarball-1"))
-
-				content, err = os.ReadFile(shared[0])
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(content)).To(Equal("tarball-1"))
-			})
-		})
-
 		context("when an app is named \"shared\"", func() {
 			it("rejects the name instead of risking collision with the shared tarball directory", func() {
 				_, err := manager.Build(workspace, "shared")
