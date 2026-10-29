@@ -116,9 +116,9 @@ directory changes. The three most recently used tarballs are kept. Set
 `SWITCHBLADE_DISABLE_BUILDPACK_CACHE=true` to rebuild the tarball for every
 deployment instead.
 
-Two settings speed up staging on Docker by default:
+Two settings speed up staging on Docker:
 
-- Droplet and build cache compress with the fastest gzip level. The droplet
+- On by default: droplet and build cache compress with the fastest gzip level. The droplet
   contents are unchanged, only the archive is slightly larger. The lifecycle
   runs `tar -czf`, which takes no compression level, and the `GZIP`
   environment variable is deprecated. So Switchblade copies a small wrapper,
@@ -127,10 +127,11 @@ Two settings speed up staging on Docker by default:
   buildpack that runs `gzip` during staging also gets level 1, unless it
   passes its own level. Set `SWITCHBLADE_FULL_COMPRESSION=true` to opt out and
   use the default compression level instead.
-- The build cache is neither restored nor saved between deployments. Set
-  `SWITCHBLADE_ENABLE_BUILD_CACHE=true` to opt out and restore/save it as
-  before. Only opt out when a test relies on the build cache of an earlier
-  deployment with the same name.
+- Opt-in: set `SWITCHBLADE_SKIP_BUILD_CACHE=true` to neither restore nor save
+  the build cache between deployments. Only opt in when no test relies on the
+  build cache of an earlier deployment with the same name, for example a test
+  that pushes the same app twice and expects the second staging to reuse
+  cached dependencies.
 
 ### Specifying buildpacks: `WithBuildpacks`
 

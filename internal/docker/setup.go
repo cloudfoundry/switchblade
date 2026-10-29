@@ -28,11 +28,11 @@ const (
 	// default level during staging instead.
 	FullCompressionEnv = "SWITCHBLADE_FULL_COMPRESSION"
 
-	// EnableBuildCacheEnv, when set to a true value, opts out of the default
-	// of skipping the build cache, restoring and saving it between
-	// deployments instead. Only opt out of skipping when a deployment relies
-	// on the cache of an earlier deployment with the same name.
-	EnableBuildCacheEnv = "SWITCHBLADE_ENABLE_BUILD_CACHE"
+	// SkipBuildCacheEnv, when set to a true value, opts in to skipping the
+	// build cache: it is neither restored nor saved between deployments. Only
+	// opt in when no deployment relies on the cache of an earlier deployment
+	// with the same name.
+	SkipBuildCacheEnv = "SWITCHBLADE_SKIP_BUILD_CACHE"
 )
 
 // fastGzipWrapper takes precedence over /usr/bin/gzip on the stack PATH, so

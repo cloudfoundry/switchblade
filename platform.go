@@ -103,7 +103,7 @@ func NewPlatform(platformType, token, stack string) (Platform, error) {
 		if full, _ := strconv.ParseBool(os.Getenv(docker.FullCompressionEnv)); !full {
 			setup = setup.WithFastCompression()
 		}
-		if enabled, _ := strconv.ParseBool(os.Getenv(docker.EnableBuildCacheEnv)); !enabled {
+		if skip, _ := strconv.ParseBool(os.Getenv(docker.SkipBuildCacheEnv)); skip {
 			setup = setup.WithoutBuildCache()
 			stage = stage.WithoutBuildCache()
 		}
