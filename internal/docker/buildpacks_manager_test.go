@@ -444,6 +444,43 @@ func testBuildpacksManager(t *testing.T, context spec.G, it spec.S) {
 				Expect(archiver.CompressCall.CallCount).To(Equal(2))
 				Expect(sharedTarballs()).To(HaveLen(2))
 			}, spec.Sequential())
+
+			it("does not reuse the cache when a local path with .. resolves through a symlink to a different file", func() {
+				root, err := os.MkdirTemp("", "root")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.RemoveAll(root)
+
+				elsewhere, err := os.MkdirTemp("", "elsewhere")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.RemoveAll(elsewhere)
+
+				Expect(os.Mkdir(filepath.Join(elsewhere, "child"), 0700)).To(Succeed())
+				Expect(os.Symlink(filepath.Join(elsewhere, "child"), filepath.Join(root, "link"))).To(Succeed())
+
+				// Same size and mtime, different content. root/link/../buildpack.zip
+				// is elsewhere/buildpack.zip, but lexically cleans to root/buildpack.zip.
+				// filepath.Join would clean it, so the path is built by hand.
+				mtime := time.Now().Add(-time.Hour)
+				Expect(os.WriteFile(filepath.Join(root, "buildpack.zip"), []byte("content-aaa"), 0600)).To(Succeed())
+				Expect(os.Chtimes(filepath.Join(root, "buildpack.zip"), mtime, mtime)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(elsewhere, "buildpack.zip"), []byte("content-bbb"), 0600)).To(Succeed())
+				Expect(os.Chtimes(filepath.Join(elsewhere, "buildpack.zip"), mtime, mtime)).To(Succeed())
+
+				registry.ListCall.Returns.BuildpackSlice = []docker.Buildpack{
+					{Name: "local-buildpack", URI: filepath.Join(root, "buildpack.zip")},
+				}
+				_, err = manager.Build(workspace, "app-a")
+				Expect(err).NotTo(HaveOccurred())
+
+				registry.ListCall.Returns.BuildpackSlice = []docker.Buildpack{
+					{Name: "local-buildpack", URI: root + "/link/../buildpack.zip"},
+				}
+				_, err = manager.Build(workspace, "app-b")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(archiver.CompressCall.CallCount).To(Equal(2))
+				Expect(sharedTarballs()).To(HaveLen(2))
+			})
 		})
 
 		context("WithoutSharing", func() {

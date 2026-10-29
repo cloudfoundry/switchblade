@@ -216,6 +216,15 @@ func buildpacksKey(buildpacks []Buildpack) (string, error) {
 			}
 
 			identity = abs
+
+			// Abs cleans ".." lexically, but the filesystem resolves it
+			// after following symlinks, so key on the resolved path when
+			// the file exists.
+			if real, err := filepath.EvalSymlinks(buildpack.URI); err == nil {
+				if identity, err = filepath.Abs(real); err != nil {
+					return "", fmt.Errorf("failed to resolve buildpack path: %w", err)
+				}
+			}
 		}
 
 		fmt.Fprintf(hash, "%s|%s\n", buildpack.Name, identity)
@@ -293,25 +302,28 @@ func removeStaleTemp(sharedDir, shared string) {
 func evictOldSharedTarballs(sharedDir string) {
 	paths, _ := filepath.Glob(filepath.Join(sharedDir, "*.tar.gz"))
 
-	var finished []os.FileInfo
-	finishedPaths := map[os.FileInfo]string{}
+	type tarball struct {
+		path    string
+		modTime time.Time
+	}
+
+	var finished []tarball
 	for _, path := range paths {
 		info, err := os.Stat(path)
 		if err != nil {
 			continue
 		}
 
-		finished = append(finished, info)
-		finishedPaths[info] = path
+		finished = append(finished, tarball{path: path, modTime: info.ModTime()})
 	}
 
 	sort.Slice(finished, func(i, j int) bool {
-		return finished[i].ModTime().After(finished[j].ModTime())
+		return finished[i].modTime.After(finished[j].modTime)
 	})
 
-	for i, info := range finished {
+	for i, t := range finished {
 		if i >= sharedKeep {
-			_ = os.Remove(finishedPaths[info])
+			_ = os.Remove(t.path)
 		}
 	}
 }
