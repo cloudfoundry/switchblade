@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
 	"github.com/cloudfoundry/switchblade/internal/docker"
@@ -91,9 +90,6 @@ func NewPlatform(platformType, token, stack string) (Platform, error) {
 		// so BestSpeed trades compression ratio for speed there without
 		// affecting the app source, lifecycle, or build-cache archives below.
 		buildpacksManager := docker.NewBuildpacksManager(archiver.WithCompressionLevel(gzip.BestSpeed), buildpacksCache, buildpacksRegistry)
-		if disabled, _ := strconv.ParseBool(os.Getenv(docker.DisableBuildpackCacheEnv)); disabled {
-			buildpacksManager = buildpacksManager.WithoutSharing()
-		}
 		networkManager := docker.NewNetworkManager(dockerClient)
 
 		initialize := docker.NewInitialize(buildpacksRegistry, networkManager)
