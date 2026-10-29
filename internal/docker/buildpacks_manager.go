@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -101,6 +102,16 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 
 	output := filepath.Join(workspace, fmt.Sprintf("%s.tar.gz", name))
 
+	// workspace may not exist yet on a fresh installation. buildTarball
+	// creates it implicitly for the opt-out path via its staging directory,
+	// but the sharing path below only creates the sibling sharedDir, so
+	// workspace must be created explicitly before linking or copying the
+	// shared tarball into it.
+	err = os.MkdirAll(workspace, os.ModePerm)
+	if err != nil {
+		return "", fmt.Errorf("failed to create buildpacks workspace: %w", err)
+	}
+
 	if m.disableSharing {
 		// output may be a hard link to a shared tarball left over from an
 		// earlier build of this app with sharing enabled. Remove it first so
@@ -190,7 +201,33 @@ func buildpacksKey(buildpacks []Buildpack) (string, error) {
 
 	hash := sha256.New()
 	for _, buildpack := range sorted {
-		fmt.Fprintf(hash, "%s|%s\n", buildpack.Name, buildpack.URI)
+		identity := buildpack.URI
+
+		// BuildpacksCache.Fetch treats a URI without a URL scheme as a local
+		// path and opens it relative to the current working directory. Two
+		// processes with different working directories can supply the same
+		// relative path for different files, so key on the absolute path for
+		// local buildpacks to avoid a false cache hit. Remote URIs are
+		// already globally unambiguous and are kept as-is.
+		if u, err := url.Parse(buildpack.URI); err == nil && !u.IsAbs() {
+			abs, err := filepath.Abs(buildpack.URI)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve buildpack path: %w", err)
+			}
+
+			identity = abs
+
+			// Abs cleans ".." lexically, but the filesystem resolves it
+			// after following symlinks, so key on the resolved path when
+			// the file exists.
+			if real, err := filepath.EvalSymlinks(buildpack.URI); err == nil {
+				if identity, err = filepath.Abs(real); err != nil {
+					return "", fmt.Errorf("failed to resolve buildpack path: %w", err)
+				}
+			}
+		}
+
+		fmt.Fprintf(hash, "%s|%s\n", buildpack.Name, identity)
 
 		info, err := os.Stat(buildpack.URI)
 		if err != nil {
@@ -229,7 +266,7 @@ func buildpacksKey(buildpacks []Buildpack) (string, error) {
 		}
 	}
 
-	return hex.EncodeToString(hash.Sum(nil))[:16], nil
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // removeStaleTemp removes temporary staging directories and tmp files older
@@ -265,25 +302,28 @@ func removeStaleTemp(sharedDir, shared string) {
 func evictOldSharedTarballs(sharedDir string) {
 	paths, _ := filepath.Glob(filepath.Join(sharedDir, "*.tar.gz"))
 
-	var finished []os.FileInfo
-	finishedPaths := map[os.FileInfo]string{}
+	type tarball struct {
+		path    string
+		modTime time.Time
+	}
+
+	var finished []tarball
 	for _, path := range paths {
 		info, err := os.Stat(path)
 		if err != nil {
 			continue
 		}
 
-		finished = append(finished, info)
-		finishedPaths[info] = path
+		finished = append(finished, tarball{path: path, modTime: info.ModTime()})
 	}
 
 	sort.Slice(finished, func(i, j int) bool {
-		return finished[i].ModTime().After(finished[j].ModTime())
+		return finished[i].modTime.After(finished[j].modTime)
 	})
 
-	for i, info := range finished {
+	for i, t := range finished {
 		if i >= sharedKeep {
-			_ = os.Remove(finishedPaths[info])
+			_ = os.Remove(t.path)
 		}
 	}
 }
@@ -348,7 +388,16 @@ func (m BuildpacksManager) buildTarball(staging, output string, buildpacks []Bui
 		destination := filepath.Join(staging, fmt.Sprintf("%x", md5.Sum([]byte(buildpack.Name))))
 
 		if isDir {
-			err = fs.Copy(buildpack.URI, destination)
+			// filepath.Walk (used internally by fs.Copy) does not follow
+			// symbolic links, so a symlinked buildpack.URI would only
+			// yield a single symlink entry instead of its contents.
+			// Resolve to the real path first, matching buildpacksKey.
+			source, err := filepath.EvalSymlinks(buildpack.URI)
+			if err != nil {
+				return fmt.Errorf("failed to resolve buildpack directory: %w", err)
+			}
+
+			err = fs.Copy(source, destination)
 			if err != nil {
 				return fmt.Errorf("failed to copy buildpack: %w", err)
 			}
