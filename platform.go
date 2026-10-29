@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/cloudfoundry/switchblade/internal/cloudfoundry"
 	"github.com/cloudfoundry/switchblade/internal/docker"
@@ -94,11 +95,8 @@ func NewPlatform(platformType, token, stack string) (Platform, error) {
 
 		initialize := docker.NewInitialize(buildpacksRegistry, networkManager)
 		deinitialize := docker.NewDeinitialize(networkManager)
-		setup := docker.NewSetup(dockerClient, lifecycleManager, buildpacksManager, archiver, networkManager, workspace, stack)
+		setup := docker.NewSetup(dockerClient, lifecycleManager, buildpacksManager, archiver, networkManager, workspace, stack).WithFastCompression()
 		stage := docker.NewStage(dockerClient, archiver, workspace)
-		if full, _ := strconv.ParseBool(os.Getenv(docker.FullCompressionEnv)); !full {
-			setup = setup.WithFastCompression()
-		}
 		if skip, _ := strconv.ParseBool(os.Getenv(docker.SkipBuildCacheEnv)); skip {
 			setup = setup.WithoutBuildCache()
 			stage = stage.WithoutBuildCache()

@@ -123,8 +123,7 @@ Two settings speed up staging on Docker:
   `exec /usr/bin/gzip -1 "$@"`, to `/usr/local/bin/gzip` in each staging
   container (not on the host), ahead of `/usr/bin` on the stack `PATH`. A
   buildpack that runs `gzip` during staging also gets level 1, unless it
-  passes its own level. Set `SWITCHBLADE_FULL_COMPRESSION=true` to opt out and
-  use the default compression level instead.
+  passes its own level.
 - Opt-in: set `SWITCHBLADE_SKIP_BUILD_CACHE=true` to neither restore nor save
   the build cache between deployments. Only opt in when no test relies on the
   build cache of an earlier deployment with the same name, for example a test

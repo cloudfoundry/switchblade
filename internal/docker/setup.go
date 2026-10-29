@@ -23,11 +23,6 @@ const (
 	BuildpackAppLifecycleRepoURL = "https://github.com/cloudfoundry/buildpackapplifecycle/archive/refs/heads/main.zip"
 	BridgeNetworkName            = "bridge"
 
-	// FullCompressionEnv, when set to a true value, opts out of the default
-	// fastest gzip level and compresses the droplet and build cache at the
-	// default level during staging instead.
-	FullCompressionEnv = "SWITCHBLADE_FULL_COMPRESSION"
-
 	// SkipBuildCacheEnv, when set to a true value, opts in to skipping the
 	// build cache: it is neither restored nor saved between deployments. Only
 	// opt in when no deployment relies on the cache of an earlier deployment
