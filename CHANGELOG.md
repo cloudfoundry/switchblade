@@ -12,19 +12,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   instead of being rebuilt per app. Significantly reduces build time and
   disk use on repeated/parallel deployments. Internal to the Docker
   platform; no public API changes. (#136)
-- Docker platform: new opt-in environment variables for integration test
-  runs:
-  - `SWITCHBLADE_FAST_COMPRESSION` — trades some compression ratio for
-    significantly faster tarball builds.
-  - `SWITCHBLADE_SKIP_BUILD_CACHE` — skips restoring the build cache layer
-    for faster, cold-cache-style runs.
-
-  Both default to current behavior when unset. (#137)
+- Docker platform: staging now uses a faster `gzip -1` for the tarballs
+  created during staging. This is always on and has no opt-out. (#137)
+- Docker platform: new opt-in environment variable
+  `SWITCHBLADE_SKIP_BUILD_CACHE=true` skips the build cache during
+  staging (no restore, no copy-out, no recompression). It is off by
+  default because buildpack tests that deploy the same app twice and
+  expect the second staging to reuse the cache would fail. (#137)
 - Docker platform: app names are validated against path traversal and
   reserved names (`shared`, `buildpacks-shared`) before being used to
   construct filesystem paths, preventing a maliciously or accidentally
   named app from corrupting the shared build cache or escaping its
-  staging directory. (#137)
+  staging directory. (#136)
 
 ### Fixed
 - Docker platform: the shared buildpack cache key now uses the full
@@ -55,5 +54,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - If a consuming buildpack's own `go.mod` also requires `packit/v2`
   directly, check its pinned version against the Go-1.24 ceiling noted
   above before bumping, to avoid an unplanned toolchain/lint bump.
-- `SWITCHBLADE_FAST_COMPRESSION` and `SWITCHBLADE_SKIP_BUILD_CACHE` are
-  purely additive and inert unless a buildpack's CI pipeline sets them.
+- Docker platform behavior changes without configuration: buildpack
+  tarballs are shared across apps and staging uses `gzip -1`. Neither
+  can be switched off.
+- `SWITCHBLADE_SKIP_BUILD_CACHE` is inert unless a buildpack's CI
+  pipeline sets it. Enable it only if no test relies on build cache reuse.
