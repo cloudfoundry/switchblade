@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	gocontext "context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/paketo-buildpacks/packit/v2/vacation"
@@ -137,6 +139,50 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			content, err = os.ReadFile(filepath.Join(workspace, "build-cache-output", "tmp", "cache", "some-file"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(content)).To(Equal("some-cache-contents"))
+		})
+
+		context("when the lifecycle wrote no build cache", func() {
+			it.Before(func() {
+				client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
+					buffer := bytes.NewBuffer(nil)
+					switch srcPath {
+					case "/tmp/droplet":
+						if err := generateDroplet(buffer); err != nil {
+							return nil, container.PathStat{}, err
+						}
+
+					case "/tmp/output-cache":
+						return nil, container.PathStat{}, fmt.Errorf("could not find the file /tmp/output-cache: %w", errdefs.ErrNotFound)
+
+					case "/tmp/result.json":
+						err := generateResultJSON(buffer, `{
+							"processes": [
+								{ "type": "web", "command": "some-command" }
+							]
+						}`)
+						if err != nil {
+							return nil, container.PathStat{}, err
+						}
+					}
+
+					return io.NopCloser(buffer), container.PathStat{}, nil
+				}
+			})
+
+			it("stages without saving a build cache", func() {
+				ctx := gocontext.Background()
+				logs := bytes.NewBuffer(nil)
+
+				command, err := stage.Run(ctx, logs, "some-container-id", "some-app")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(command).To(Equal("some-command"))
+
+				content, err := os.ReadFile(filepath.Join(workspace, "droplets", "some-app.tar.gz"))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(content)).To(Equal("some-droplet-contents"))
+
+				Expect(filepath.Join(workspace, "build-cache", "some-app.tar.gz")).NotTo(BeAnExistingFile())
+			})
 		})
 
 		context("when the container exits with a non-zero status", func() {

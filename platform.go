@@ -91,15 +91,15 @@ func NewPlatform(platformType, token, stack string) (Platform, error) {
 		// so BestSpeed trades compression ratio for speed there without
 		// affecting the app source, lifecycle, or build-cache archives below.
 		buildpacksManager := docker.NewBuildpacksManager(archiver.WithCompressionLevel(gzip.BestSpeed), buildpacksCache, buildpacksRegistry)
-		if disabled, _ := strconv.ParseBool(os.Getenv(docker.DisableBuildpackCacheEnv)); disabled {
-			buildpacksManager = buildpacksManager.WithoutSharing()
-		}
 		networkManager := docker.NewNetworkManager(dockerClient)
 
 		initialize := docker.NewInitialize(buildpacksRegistry, networkManager)
 		deinitialize := docker.NewDeinitialize(networkManager)
-		setup := docker.NewSetup(dockerClient, lifecycleManager, buildpacksManager, archiver, networkManager, workspace, stack)
+		setup := docker.NewSetup(dockerClient, lifecycleManager, buildpacksManager, archiver, networkManager, workspace, stack).WithFastCompression()
 		stage := docker.NewStage(dockerClient, archiver, workspace)
+		if skip, _ := strconv.ParseBool(os.Getenv(docker.SkipBuildCacheEnv)); skip {
+			setup = setup.WithoutBuildCache()
+		}
 		start := docker.NewStart(dockerClient, networkManager, workspace, stack)
 		teardown := docker.NewTeardown(dockerClient, workspace)
 

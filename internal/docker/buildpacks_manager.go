@@ -42,8 +42,7 @@ type BuildpacksManager struct {
 	cache    BPCache
 	registry BPRegistry
 
-	filter         []string
-	disableSharing bool
+	filter []string
 }
 
 func NewBuildpacksManager(archiver Archiver, cache BPCache, registry BPRegistry) BuildpacksManager {
@@ -59,10 +58,6 @@ func NewBuildpacksManager(archiver Archiver, cache BPCache, registry BPRegistry)
 var buildpacksBuildMutex sync.Mutex
 
 const (
-	// DisableBuildpackCacheEnv, when set to a true value, rebuilds the
-	// buildpacks tarball for every app instead of reusing a shared tarball.
-	DisableBuildpackCacheEnv = "SWITCHBLADE_DISABLE_BUILDPACK_CACHE"
-
 	// sharedKeep is the number of most recently used shared tarballs to keep,
 	// so tests alternating between buildpack sets do not rebuild every time.
 	sharedKeep = 3
@@ -102,32 +97,12 @@ func (m BuildpacksManager) Build(workspace, name string) (string, error) {
 
 	output := filepath.Join(workspace, fmt.Sprintf("%s.tar.gz", name))
 
-	// workspace may not exist yet on a fresh installation. buildTarball
-	// creates it implicitly for the opt-out path via its staging directory,
-	// but the sharing path below only creates the sibling sharedDir, so
-	// workspace must be created explicitly before linking or copying the
-	// shared tarball into it.
+	// workspace may not exist yet on a fresh installation. The shared path
+	// below only creates the sibling sharedDir, so workspace must be created
+	// explicitly before linking or copying the shared tarball into it.
 	err = os.MkdirAll(workspace, os.ModePerm)
 	if err != nil {
 		return "", fmt.Errorf("failed to create buildpacks workspace: %w", err)
-	}
-
-	if m.disableSharing {
-		// output may be a hard link to a shared tarball left over from an
-		// earlier build of this app with sharing enabled. Remove it first so
-		// buildTarball's os.Create does not truncate that shared file in
-		// place for every other app still linked to it.
-		err = os.Remove(output)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("failed to remove existing buildpacks tarball: %w", err)
-		}
-
-		err = m.buildTarball(filepath.Join(workspace, name), output, selected)
-		if err != nil {
-			return "", err
-		}
-
-		return output, nil
 	}
 
 	key, err := buildpacksKey(selected)
@@ -438,13 +413,6 @@ func (m BuildpacksManager) Order() (string, bool, error) {
 	}
 
 	return strings.Join(names, ","), len(m.filter) > 0, nil
-}
-
-// WithoutSharing rebuilds the buildpacks tarball for every app instead of
-// reusing a shared tarball.
-func (m BuildpacksManager) WithoutSharing() BuildpacksManager {
-	m.disableSharing = true
-	return m
 }
 
 func (m BuildpacksManager) WithBuildpacks(buildpacks ...string) BuildpacksBuilder {
