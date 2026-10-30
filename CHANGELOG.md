@@ -7,11 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- Docker platform: buildpacks are now cached as a shared, content-addressed
-  tarball and reused across all apps that need the same buildpack set,
-  instead of being rebuilt per app. Significantly reduces build time and
-  disk use on repeated/parallel deployments. Internal to the Docker
-  platform; no public API changes. (#136)
+- Docker platform: buildpacks are now cached as a shared tarball and
+  reused across all apps that need the same buildpack set, instead of
+  being rebuilt per app. The cache key is a SHA-256 over the buildpack
+  names and URIs; for local buildpacks it also covers file size and
+  modification time (not file contents). Significantly reduces build
+  time and disk use on repeated/parallel deployments. Internal to the
+  Docker platform; no public API changes. (#136)
 - Docker platform: staging now uses a faster `gzip -1` for the tarballs
   created during staging. This is always on and has no opt-out. (#137)
 - Docker platform: new opt-in environment variable
@@ -48,9 +50,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (#139)
 
 ### Upgrade notes
-- No breaking API changes in this release. A routine
-  `go get github.com/cloudfoundry/switchblade@latest` should be safe for
-  all consuming buildpacks (java, nodejs, python, ruby, go, php, etc.).
+- No breaking API changes in this release. Switchblade now requires
+  Go 1.24.6 or newer (`go.mod`). Consuming buildpacks on an older Go
+  toolchain, with automatic toolchain switching disabled, must update
+  their toolchain before running
+  `go get github.com/cloudfoundry/switchblade@latest`.
 - If a consuming buildpack's own `go.mod` also requires `packit/v2`
   directly, check its pinned version against the Go-1.24 ceiling noted
   above before bumping, to avoid an unplanned toolchain/lint bump.
