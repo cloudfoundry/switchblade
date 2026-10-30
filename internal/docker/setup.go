@@ -303,9 +303,8 @@ func (s Setup) WithFastCompression() Setup {
 }
 
 // WithoutBuildCache neither restores a build cache into the staging
-// container nor lets the lifecycle archive one. Setup and Stage must both
-// skip the build cache: otherwise Stage tries to copy out a cache that the
-// lifecycle never wrote. Use it together with Stage.WithoutBuildCache.
+// container nor lets the lifecycle archive one. Stage needs no matching
+// option: it saves a build cache only when the lifecycle wrote one.
 func (s Setup) WithoutBuildCache() Setup {
 	s.skipBuildCache = true
 	return s

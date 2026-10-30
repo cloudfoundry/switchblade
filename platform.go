@@ -99,7 +99,6 @@ func NewPlatform(platformType, token, stack string) (Platform, error) {
 		stage := docker.NewStage(dockerClient, archiver, workspace)
 		if skip, _ := strconv.ParseBool(os.Getenv(docker.SkipBuildCacheEnv)); skip {
 			setup = setup.WithoutBuildCache()
-			stage = stage.WithoutBuildCache()
 		}
 		start := docker.NewStart(dockerClient, networkManager, workspace, stack)
 		teardown := docker.NewTeardown(dockerClient, workspace)

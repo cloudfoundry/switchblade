@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	gocontext "context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/cloudfoundry/switchblade/internal/docker"
 	"github.com/cloudfoundry/switchblade/internal/docker/fakes"
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/paketo-buildpacks/packit/v2/vacation"
@@ -139,22 +141,41 @@ func testStage(t *testing.T, context spec.G, it spec.S) {
 			Expect(string(content)).To(Equal("some-cache-contents"))
 		})
 
-		context("WithoutBuildCache", func() {
+		context("when the lifecycle wrote no build cache", func() {
 			it.Before(func() {
-				stage = stage.WithoutBuildCache()
+				client.CopyFromContainerCall.Stub = func(ctx gocontext.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
+					buffer := bytes.NewBuffer(nil)
+					switch srcPath {
+					case "/tmp/droplet":
+						if err := generateDroplet(buffer); err != nil {
+							return nil, container.PathStat{}, err
+						}
+
+					case "/tmp/output-cache":
+						return nil, container.PathStat{}, fmt.Errorf("could not find the file /tmp/output-cache: %w", errdefs.ErrNotFound)
+
+					case "/tmp/result.json":
+						err := generateResultJSON(buffer, `{
+							"processes": [
+								{ "type": "web", "command": "some-command" }
+							]
+						}`)
+						if err != nil {
+							return nil, container.PathStat{}, err
+						}
+					}
+
+					return io.NopCloser(buffer), container.PathStat{}, nil
+				}
 			})
 
-			it("does not copy the build cache out of the container", func() {
+			it("stages without saving a build cache", func() {
 				ctx := gocontext.Background()
 				logs := bytes.NewBuffer(nil)
 
 				command, err := stage.Run(ctx, logs, "some-container-id", "some-app")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(command).To(Equal("some-command"))
-
-				Expect(copyFromContainerInvocations).To(HaveLen(2))
-				Expect(copyFromContainerInvocations[0].SrcPath).To(Equal("/tmp/droplet"))
-				Expect(copyFromContainerInvocations[1].SrcPath).To(Equal("/tmp/result.json"))
 
 				content, err := os.ReadFile(filepath.Join(workspace, "droplets", "some-app.tar.gz"))
 				Expect(err).NotTo(HaveOccurred())

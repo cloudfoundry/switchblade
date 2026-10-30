@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 )
@@ -31,8 +32,6 @@ type Stage struct {
 	client    StageClient
 	archiver  Archiver
 	workspace string
-
-	skipBuildCache bool
 }
 
 func NewStage(client StageClient, archiver Archiver, workspace string) Stage {
@@ -41,15 +40,6 @@ func NewStage(client StageClient, archiver Archiver, workspace string) Stage {
 		archiver:  archiver,
 		workspace: workspace,
 	}
-}
-
-// WithoutBuildCache skips copying the build cache out of the staging
-// container. Setup and Stage must both skip the build cache: otherwise Setup
-// makes the lifecycle write no cache while Stage still tries to copy it out.
-// Use it together with Setup.WithoutBuildCache.
-func (s Stage) WithoutBuildCache() Stage {
-	s.skipBuildCache = true
-	return s
 }
 
 func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string) (string, error) {
@@ -130,47 +120,8 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 		}
 	}
 
-	if !s.skipBuildCache {
-		buildCache, _, err := s.client.CopyFromContainer(ctx, containerID, "/tmp/output-cache")
-		if err != nil {
-			return "", fmt.Errorf("failed to copy build cache from container: %w", err)
-		}
-		defer buildCache.Close()
-
-		err = os.MkdirAll(filepath.Join(s.workspace, "build-cache"), os.ModePerm)
-		if err != nil {
-			return "", fmt.Errorf("failed to create build-cache directory: %w", err)
-		}
-
-		tr = tar.NewReader(buildCache)
-		for {
-			hdr, err := tr.Next()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return "", fmt.Errorf("failed to retrieve build cache from tarball: %w", err)
-			}
-
-			if hdr.Name == "output-cache" {
-				cachePath := filepath.Join(s.workspace, "build-cache", name)
-				outputFile, err := os.Create(cachePath)
-				if err != nil {
-					return "", fmt.Errorf("failed to create build-cache path: %w", err)
-				}
-
-				_, err = io.CopyN(outputFile, tr, hdr.Size)
-				if err != nil {
-					return "", fmt.Errorf("failed to copy build cache: %w", err)
-				}
-				defer os.RemoveAll(cachePath)
-
-				err = s.archiver.WithPrefix("/tmp/cache").Compress(cachePath, filepath.Join(s.workspace, "build-cache", fmt.Sprintf("%s.tar.gz", name)))
-				if err != nil {
-					return "", fmt.Errorf("failed to recompress build cache: %w", err)
-				}
-			}
-		}
+	if err := s.copyBuildCache(ctx, containerID, name); err != nil {
+		return "", err
 	}
 
 	result, _, err := s.client.CopyFromContainer(ctx, containerID, "/tmp/result.json")
@@ -223,4 +174,57 @@ func (s Stage) Run(ctx context.Context, logs io.Writer, containerID, name string
 	}
 
 	return command, nil
+}
+
+// copyBuildCache saves the build cache the lifecycle wrote, recompressed for
+// the next deployment of the same app. When Setup skipped the build cache,
+// the lifecycle writes none, so the container has no /tmp/output-cache and
+// there is nothing to save. This lets Setup alone decide whether to skip the
+// build cache.
+func (s Stage) copyBuildCache(ctx context.Context, containerID, name string) error {
+	buildCache, _, err := s.client.CopyFromContainer(ctx, containerID, "/tmp/output-cache")
+	if errdefs.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to copy build cache from container: %w", err)
+	}
+	defer buildCache.Close()
+
+	err = os.MkdirAll(filepath.Join(s.workspace, "build-cache"), os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create build-cache directory: %w", err)
+	}
+
+	tr := tar.NewReader(buildCache)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to retrieve build cache from tarball: %w", err)
+		}
+
+		if hdr.Name == "output-cache" {
+			cachePath := filepath.Join(s.workspace, "build-cache", name)
+			outputFile, err := os.Create(cachePath)
+			if err != nil {
+				return fmt.Errorf("failed to create build-cache path: %w", err)
+			}
+
+			_, err = io.CopyN(outputFile, tr, hdr.Size)
+			if err != nil {
+				return fmt.Errorf("failed to copy build cache: %w", err)
+			}
+			defer os.RemoveAll(cachePath)
+
+			err = s.archiver.WithPrefix("/tmp/cache").Compress(cachePath, filepath.Join(s.workspace, "build-cache", fmt.Sprintf("%s.tar.gz", name)))
+			if err != nil {
+				return fmt.Errorf("failed to recompress build cache: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
