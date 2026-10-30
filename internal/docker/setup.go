@@ -268,6 +268,10 @@ func (s Setup) Run(ctx context.Context, logs io.Writer, name, path string) (stri
 func fastGzipTarball() (io.Reader, error) {
 	buffer := bytes.NewBuffer(nil)
 	tw := tar.NewWriter(buffer)
+	// The name is deliberately relative: CopyToContainer extracts the tar
+	// relative to its destination path "/", so this lands at
+	// /usr/local/bin/gzip. A leading slash can extract to //usr/local/bin/gzip
+	// on some runtimes.
 	err := tw.WriteHeader(&tar.Header{
 		Name:     "usr/local/bin/gzip",
 		Mode:     0755,
@@ -299,7 +303,9 @@ func (s Setup) WithFastCompression() Setup {
 }
 
 // WithoutBuildCache neither restores a build cache into the staging
-// container nor lets the lifecycle archive one.
+// container nor lets the lifecycle archive one. Setup and Stage must both
+// skip the build cache: otherwise Stage tries to copy out a cache that the
+// lifecycle never wrote. Use it together with Stage.WithoutBuildCache.
 func (s Setup) WithoutBuildCache() Setup {
 	s.skipBuildCache = true
 	return s

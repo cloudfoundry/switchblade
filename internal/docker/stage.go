@@ -44,7 +44,9 @@ func NewStage(client StageClient, archiver Archiver, workspace string) Stage {
 }
 
 // WithoutBuildCache skips copying the build cache out of the staging
-// container. Use it together with Setup.WithoutBuildCache.
+// container. Setup and Stage must both skip the build cache: otherwise Setup
+// makes the lifecycle write no cache while Stage still tries to copy it out.
+// Use it together with Setup.WithoutBuildCache.
 func (s Stage) WithoutBuildCache() Stage {
 	s.skipBuildCache = true
 	return s
