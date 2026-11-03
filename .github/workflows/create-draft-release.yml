@@ -33,6 +33,9 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v7
+      with:
+        # increment-tag lists tags with `git tag --merged`, which needs history
+        fetch-depth: 0
 
     - run: git fetch --depth=1 origin +refs/tags/*:refs/tags/* || true
 
