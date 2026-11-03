@@ -55,7 +55,9 @@ jobs:
         GH_TOKEN: ${{ secrets.CF_BOT_GITHUB_TOKEN }}
       run: |
         set -euo pipefail
-        body_file="$RUNNER_TEMP/release-body.md"
+        # Relative path inside the workspace: the release/create action is a
+        # Docker action and only sees the workspace, not $RUNNER_TEMP.
+        body_file="release-body.md"
 
         # Prefer the curated [Unreleased] section from CHANGELOG.md. GitHub
         # auto-generated notes are only a fallback, because this workflow
