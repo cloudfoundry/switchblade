@@ -238,3 +238,29 @@ if err != nil {
 
 fmt.Println(name) // Outputs: switchblade-<some-ulid>
 ```
+
+## Releasing
+
+Releases are cut from `main` by the
+[Create Draft Release](.github/workflows/create-draft-release.yml) workflow.
+On every push to `main` it deletes the previous draft, bumps the tag, and
+creates a new draft release.
+
+The draft body is taken from the `## [Unreleased]` section of
+[`CHANGELOG.md`](CHANGELOG.md). If that section is empty, the workflow falls
+back to GitHub's auto-generated release notes (`What's Changed`).
+
+Because the draft is recreated on every push, do not edit the draft release
+body by hand — it will be overwritten. Instead:
+
+1. Add entries under `## [Unreleased]` in `CHANGELOG.md` as changes land.
+   Each push to `main` refreshes the draft with that section.
+2. Review the draft, then publish it.
+3. Afterwards, in a follow-up change, rename `## [Unreleased]` to the
+   published version (for example `## [v0.10.0] - 2026-11-02`) and leave a
+   fresh, empty `## [Unreleased]` section at the top.
+
+Do the rename only *after* publishing: a push to `main` deletes the existing
+draft, so promoting the section beforehand would discard the notes for the
+release being cut. Until new entries are added, the next draft falls back to
+GitHub-generated notes.

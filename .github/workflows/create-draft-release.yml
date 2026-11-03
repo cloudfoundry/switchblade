@@ -49,6 +49,37 @@ jobs:
       with:
         current_version: ${{ steps.reset.outputs.current_version }}
 
+    - name: Determine Release Notes
+      id: notes
+      env:
+        GH_TOKEN: ${{ secrets.CF_BOT_GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        body_file="$RUNNER_TEMP/release-body.md"
+
+        # Prefer the curated [Unreleased] section from CHANGELOG.md. GitHub
+        # auto-generated notes are only a fallback, because this workflow
+        # recreates the draft on every push to main and would otherwise
+        # discard any notes written by hand.
+        awk '
+          /^## \[Unreleased\]/ { inside=1; next }
+          inside && /^## \[/ { exit }
+          inside { print }
+        ' CHANGELOG.md | sed -e '/./,$!d' > "$body_file"
+
+        if grep -q '[^[:space:]]' "$body_file"; then
+          echo "Using [Unreleased] section from CHANGELOG.md"
+        else
+          echo "No [Unreleased] content; falling back to GitHub-generated notes"
+          gh api "repos/${{ github.repository }}/releases/generate-notes" \
+            --method POST \
+            -f tag_name="v${{ steps.tag.outputs.tag }}" \
+            -f target_commitish="${{ github.sha }}" \
+            --jq .body > "$body_file"
+        fi
+
+        echo "body_filepath=$body_file" >> "$GITHUB_OUTPUT"
+
     - name: Create Draft Release
       uses: paketo-buildpacks/github-config/actions/release/create@main
       with:
@@ -57,4 +88,5 @@ jobs:
         tag_name: v${{ steps.tag.outputs.tag }}
         target_commitish: ${{ github.sha }}
         name: v${{ steps.tag.outputs.tag }}
+        body_filepath: ${{ steps.notes.outputs.body_filepath }}
         draft: true
